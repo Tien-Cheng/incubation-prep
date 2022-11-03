@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "incubation-prep"
+version = "0.1.0"
+description = ""
+authors = ["Tien-Cheng <tiencheng@protonmail.com>"]
+readme = "README.md"
+packages = [{include = "incubation_prep"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
