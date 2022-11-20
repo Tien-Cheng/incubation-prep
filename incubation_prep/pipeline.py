@@ -3,10 +3,10 @@ import time
 import datetime
 from typing import List, Optional
 
-from .components.drawer import Drawer
-from .components.object_det import ObjectDetector
-from .components.object_track import ObjectTracker
-from .components.split_frames import VideoIO
+from components.drawer import Drawer
+from components.object_det import ObjectDetector
+from components.object_track import ObjectTracker
+from components.split_frames import VideoIO
 
 
 class Pipeline:

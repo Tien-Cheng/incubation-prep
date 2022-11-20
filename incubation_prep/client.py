@@ -1,14 +1,14 @@
 # Client to stream incoming video to pipeline
 import click
 
-from .pipeline import Pipeline
+from pipeline import Pipeline
 
 pipe = Pipeline()
 
 
 @click.command()
-@click.option("--video_path", required=True, type=click.Path(exists=True))
-@click.option("--output_path", required=True, type=click.Path())
+@click.option("--video-path", "-i", required=True, type=click.Path(exists=True))
+@click.option("--output-path", "-o", required=True, type=click.Path())
 def stream_video(video_path, output_path):
     pipe(video_path, output_path)
 
