@@ -8,8 +8,8 @@ import cv2
 
 
 class VideoIO:
-    def __init__(self, fps: int = 30, seconds: int = 1):
-        self.fps = fps
+    def __init__(self, infer_fps: int = 30, seconds: int = 1):
+        self.infer_fps = infer_fps
         self.seconds = seconds  # no of seconds between each chip save
 
     def split_frames(self, cap):
@@ -38,7 +38,7 @@ class VideoIO:
 
         # Get FPS
         fps = cap.get(cv2.CAP_PROP_FPS)
-        fps = self.fps if math.isinf(fps) else fps
+        fps = 25 if math.isinf(fps) else fps
 
         # Get Video Width and Height
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
