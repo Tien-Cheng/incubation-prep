@@ -1,7 +1,8 @@
+import cv2
 import numpy as np
 from jina import Executor, requests
 from docarray import DocumentArray, Document
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 from scaledyolov4.scaled_yolov4 import ScaledYOLOV4
 
@@ -29,10 +30,10 @@ class YOLODetector(Executor):
         self.classes = classes
 
     @requests
-    def detect(self, docs: DocumentArray, **kwargs):
+    def detect(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # NOTE: model currently does not support batch inference
         # list only converts first dim to list, not recursively like tolist
-        traversed_docs = docs[self.traversal_path]
+        traversed_docs = docs[self.traversal_path, :]
         frames: List[np.ndarray] = list(traversed_docs.tensors)
         dets: List[List[Tuple]] = self.model.detect_get_box_in(
             frames, classes=self.classes
@@ -51,3 +52,28 @@ class YOLODetector(Executor):
                     for (bbox, score, class_name) in det
                 ]
             )
+        # Draw detections on Tensor
+        if bool(parameters.get("draw_bbox", False)):
+            traversed_docs.apply(self._draw_bbox)
+
+    @staticmethod
+    def _draw_bbox(frame: Document) -> Document:
+        img: np.ndarray = frame.tensor
+        dets = frame.matches
+        if dets:
+            bboxes, scores, classes = frame[
+                :, ("tags__bbox", "tags__score", "tags__class_name")
+            ]
+            for (bbox, score, class_) in zip(bboxes, scores, classes):
+                l, t, r, b = bbox
+                cv2.rectangle(img, (l, t), (r, b), (255, 255, 0), 1)
+                cv2.putText(
+                    img,
+                    f"{class_} ({score * 100:.2f}%)",
+                    (l, t - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (255, 255, 0),
+                )
+            frame.tensor = img
+        return frame
