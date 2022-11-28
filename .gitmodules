@@ -1,3 +1,6 @@
 [submodule "mish-cuda"]
 	path = mish-cuda
 	url = https://github.com/JunnYu/mish-cuda
+[submodule "ScaledYOLOv4"]
+	path = ScaledYOLOv4
+	url = https://github.com/Tien-Cheng/ScaledYOLOv4.git
