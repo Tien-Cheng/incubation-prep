@@ -1,3 +1,9 @@
 [submodule "Scaled-YOLOv4-TensorRT"]
 	path = Scaled-YOLOv4-TensorRT
 	url = git@github.com:tjuskyzhang/Scaled-YOLOv4-TensorRT.git
+[submodule "ScaledYOLOv4"]
+	path = ScaledYOLOv4
+	url = git@github.com:WongKinYiu/ScaledYOLOv4.git
+[submodule "mish-cuda"]
+	path = mish-cuda
+	url = https://github.com/JunnYu/mish-cuda
