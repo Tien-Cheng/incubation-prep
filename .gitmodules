@@ -4,3 +4,6 @@
 [submodule "ScaledYOLOv4"]
 	path = ScaledYOLOv4
 	url = https://github.com/Tien-Cheng/ScaledYOLOv4.git
+[submodule "yolov5"]
+	path = yolov5
+	url = https://github.com/ultralytics/yolov5.git

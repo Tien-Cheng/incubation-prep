@@ -1,0 +1,8 @@
+jtype: YOLODetector
+py_modules:
+  - executor.py
+metas:
+  name: YOLODetector
+  description: Takes in a frame /image and returns detections
+  url: 
+  keywords: ['cv']
