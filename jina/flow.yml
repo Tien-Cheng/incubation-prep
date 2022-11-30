@@ -1,0 +1,23 @@
+jtype: Flow
+with:
+  port: 4090
+  # prefetch: 4
+executors:
+  - name: YOLODetector
+    uses: executors/YOLOv5Detector/config.yml
+    uses_with:
+      triton_url: grpc://172.20.0.4:8001
+      model_name: "yolov5"
+      model_version: "1"
+      image_size: 640
+  - name: FrameDrawer
+    uses: executors/FrameDrawer/config.yml
+  - name: Output
+    uses: executors/StreamOutput/config.yml
+  # - name: YOLODetector
+  #   uses: executors/YOLODetector/config.yml
+  #   uses_with:
+  #     triton_url: 172.20.0.4:8001
+  #     model_name: scaledyolov4
+  #     model_version: "1"
+  #     image_size: 1280

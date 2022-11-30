@@ -1,0 +1,8 @@
+jtype: FrameDrawer
+py_modules:
+  - executor.py
+metas:
+  name: FrameDrawer
+  description: 
+  url: 
+  keywords: []
