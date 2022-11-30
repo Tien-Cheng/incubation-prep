@@ -42,7 +42,7 @@ class YOLODetector(Executor):
                     Document(
                         tags={
                             "bbox": det[0, :4].tolist(),  # ltrb format
-                            "class_name": det[0, 5].tolist(),
+                            "class_name": dets.names[int(det[0, 5].tolist())],
                             "score": det[0, 4].item(),
                         }
                     )

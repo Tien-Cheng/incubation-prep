@@ -7,3 +7,6 @@
 [submodule "yolov5"]
 	path = yolov5
 	url = https://github.com/ultralytics/yolov5.git
+[submodule "yolov5-pip"]
+	path = yolov5-pip
+	url = https://github.com/Tien-Cheng/yolov5-pip.git
