@@ -1,60 +1,52 @@
 import numpy as np
 from time import sleep
+import imagezmq
 import cv2
 from typing import Dict
 from threading import Thread
 from jina import DocumentArray, Document, Executor, requests
 
-def write_frame(frame: Document, stream: cv2.VideoWriter):
+
+def write_frame(
+    name: str, frame: Document, stream: imagezmq.ImageSender, width: int, height: int
+):
     if frame.matches:
-        print("Drawing BBOX")
-        bboxes, scores, classes = frame.matches[
-            :, ("tags__bbox", "tags__score", "tags__class_name")
+        bboxes, scores, classes, track_ids = frame.matches[
+            :, ("tags__bbox", "tags__score", "tags__class_name", "tags__track_id")
         ]
-        for (bbox, score, class_) in zip(bboxes, scores, classes):
+        for (bbox, score, class_, id_) in zip(bboxes, scores, classes, track_ids):
             l, t, r, b = tuple(map(int, bbox))
             cv2.rectangle(frame.tensor, (l, t), (r, b), (255, 255, 0), 1)
             cv2.putText(
                 frame.tensor,
-                f"{class_} ({score * 100:.2f}%)",
+                f"[ID: {id_}] {class_} ({score * 100:.2f}%)",
                 (l, t - 8),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
                 (255, 255, 0),
             )
-    stream.write(frame.tensor)
+    cv2.resize(frame.tensor, (width, height))
+    stream.send_image(name, frame.tensor)
+
 
 class StreamOutput(Executor):
     """"""
 
     def __init__(
         self,
-        pipeline: str = "appsrc ! videoconvert ! x264enc speed-preset=ultrafast bitrate=600 key-int-max=40 ! rtspclientsink location={}/{}",
-        url: str = "rtsp://localhost:8554",
-        fps: int = 30,
+        url: str = "tcp://127.0.0.1:5555",
         width: int = 1280,
         height: int = 720,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.url = url
-        self.pipeline = pipeline
-        self.fps = fps
-        self.width = width
         self.height = height
+        self.width = width
         self.streams: Dict[str, cv2.VideoWriter] = {}
 
     def create_stream(self, name: str):
-        pipe = self.pipeline.format(self.url, name)
-        self.logger.info(f"Creating stream for: {pipe}")
-        self.streams[name] = cv2.VideoWriter(
-            pipe,
-            cv2.CAP_GSTREAMER,
-            0,
-            self.fps,
-            (self.width, self.height),
-            True,
-        )
+        self.streams[name] = imagezmq.ImageSender(self.url)
 
     @requests
     def produce(self, docs: DocumentArray, **kwargs):
@@ -70,6 +62,12 @@ class StreamOutput(Executor):
                 self.create_stream(output_stream)
             Thread(
                 target=write_frame,
-                args=(frame, self.streams[output_stream]),
+                args=(
+                    output_stream,
+                    frame,
+                    self.streams[output_stream],
+                    self.width,
+                    self.height,
+                ),
                 daemon=True,
             ).start()

@@ -1,0 +1,8 @@
+jtype: StreamOutput
+py_modules:
+  - executor.py
+metas:
+  name: StreamOutput
+  description: 
+  url: 
+  keywords: []
