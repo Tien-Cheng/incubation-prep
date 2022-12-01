@@ -1,0 +1,10 @@
+jtype: Flow
+with:
+  port: 4091
+  prefetch: 5
+  protocol: grpc
+executors:
+  - name: Output
+    uses: executors/ImageZMQOutput/config.yml
+    replicas: 1
+    
