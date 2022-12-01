@@ -44,7 +44,7 @@ class YOLODetector(Executor):
                         tags={
                             "bbox": det[:4].tolist(),  # ltrb format
                             "class_name": int(det[5].item()),
-                            "score": det[4].item(),
+                            "confidence": det[4].item(),
                         }
                     )
                     for det in dets if det.size()[0] != 0

@@ -12,7 +12,7 @@ def write_frame(
 ):
     if frame.matches:
         bboxes, scores, classes, track_ids = frame.matches[
-            :, ("tags__bbox", "tags__score", "tags__class_name", "tags__track_id")
+            :, ("tags__bbox", "tags__confidence", "tags__class_name", "tags__track_id")
         ]
         for (bbox, score, class_, id_) in zip(bboxes, scores, classes, track_ids):
             l, t, r, b = tuple(map(int, bbox))
@@ -27,6 +27,7 @@ def write_frame(
             )
     cv2.resize(frame.tensor, (width, height))
     stream.send_image(name, frame.tensor)
+    frame.pop('tensor')
 
 
 class StreamOutput(Executor):

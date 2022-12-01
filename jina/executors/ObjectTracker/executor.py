@@ -48,7 +48,7 @@ class ObjectTracker(Executor):
     @staticmethod
     def _get_dets(frame: Document) -> List[Tuple[List[Union[int, float]], float, str]]:
         return [
-            (det.tags["bbox"], det.tags["score"], det.tags["class_name"])
+            (det.tags["bbox"], det.tags["confidence"], det.tags["class_name"])
             for det in frame.matches
         ]
 
@@ -82,7 +82,7 @@ class ObjectTracker(Executor):
                 Document(
                     tags={
                         "bbox": bbox,
-                        "score": conf,
+                        "confidence": conf,
                         "class_name": cls,
                         "track_id": track_id,
                     }
