@@ -35,17 +35,18 @@ class YOLODetector(Executor):
         results: Detections = self.model.predict(frames, size=self.image_size)
         end = perf_counter()
         self.logger.info(f"Time taken to predict frame: {end - start}")
-        for doc, dets in zip(traversed_docs, results.tolist()):
+        for doc, dets in zip(traversed_docs, results.pred):
             # Make every det a match Document
+            self.logger.info(dets)
             doc.matches = DocumentArray(
                 [
                     Document(
                         tags={
-                            "bbox": det[0, :4].tolist(),  # ltrb format
-                            "class_name": dets.names[int(det[0, 5].tolist())],
-                            "score": det[0, 4].item(),
+                            "bbox": det[:4].tolist(),  # ltrb format
+                            "class_name": int(det[5].item()),
+                            "score": det[4].item(),
                         }
                     )
-                    for det in dets.pred if len(det) != 0
+                    for det in dets if det.size()[0] != 0
                 ]
             )
