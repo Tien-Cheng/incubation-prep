@@ -1,11 +1,5 @@
-ARG TORCH_PACKAGE_VERSION=1.12.1
-ARG CUDA_VERSION=11.3
-ARG CUDNN_VERSION=8
-
-
-FROM pytorch/pytorch:${TORCH_PACKAGE_VERSION}-cuda${CUDA_VERSION}-cudnn${CUDNN_VERSION}-runtime
-
-RUN apt-get update && apt-get install --no-install-recommends -y gcc libc6-dev git
+FROM nvcr.io/nvidia/pytorch:22.08-py3
+RUN apt-get update && apt-get install --no-install-recommends -y gcc libc6-dev git libgl1
 
 ARG JINA_VERSION=
 
