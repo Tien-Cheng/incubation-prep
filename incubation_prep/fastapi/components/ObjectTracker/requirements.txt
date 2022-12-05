@@ -1,0 +1,9 @@
+opencv-python-headless
+fastapi
+pydantic
+deep-sort-realtime
+numpy
+torch
+torchvision
+Pillow
+uvicorn

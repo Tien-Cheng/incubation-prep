@@ -1,0 +1,5 @@
+opencv-python-headless
+fastapi
+vidgear[core]
+Pillow
+uvicorn
