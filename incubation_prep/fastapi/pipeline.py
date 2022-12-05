@@ -8,35 +8,52 @@ import time
 from itertools import count
 from time import perf_counter
 
+import cv2
 import click
 import numpy as np
 import requests
 from vidgear.gears import VideoGear
 
+_loop = None
+
 
 async def frame_pipe(frame, skip: bool = False):
     # Send frames to YOLODetector
     dets = None
-    if skip:
+    if not skip:
         res = requests.post(
-            "http://localhost:4001/infer",
-            files={"frames": (None, io.BytesIO(frame["tensor"]))},
+            "http://0.0.0.0:4001/infer",
+            files={"frames": ("image.jpg", io.BytesIO(frame["tensor"]))},
+            # files=(
+            #     ("frames", (None, io.BytesIO(frame["tensor"].tobytes())))
+            # )
         )
         dets = res.json()
         dets = json.dumps(dets)
         # Send frame and det to Object Tracker
         res = requests.post(
-            f"http://localhost:4002/infer/{frame['tags']['video_path']}",
-            files={"frames": (None, io.BytesIO(frame["tensor"])), "dets": dets},
+            f"http://0.0.0.0:4002/infer/{frame['tags']['output_stream']}",
+            files={
+                "frames": ("image.jpg", io.BytesIO(frame["tensor"])),
+            },
+            data={
+                "dets_per_image": dets,
+            },
         )
         dets = res.json()
         dets = json.dumps(dets)
     # Output to stream
     res = requests.post(
-        f"http://localhost:4003/{frame['tags']['video_path']}",
-        files={"frames": (None, io.BytesIO(frame["tensor"])), "dets": dets},
+        f"http://0.0.0.0:4003/{frame['tags']['output_stream']}",
+        files={
+            "frames": ("image.jpg", io.BytesIO(frame["tensor"])),
+        },
+        data={
+            "dets_per_image": dets,
+        },
     )
-
+    dets = res.json()
+    dets = json.dumps(dets)
     # Save dets to db
 
 
@@ -105,11 +122,12 @@ class Pipeline:
         try:
             for frame_id in count():
                 frame = cap.read()
-                if frame is None:
+                success, frame = cv2.imencode(".jpg", frame)
+                if frame is None or not success:
                     break
                 yield {
                     "id": f"{path}-frame-{frame_id}",
-                    "tensor": np.array(frame),
+                    "tensor": frame,
                     "tags": {
                         "video_path": path,
                         "frame_id": frame_id,
@@ -117,7 +135,7 @@ class Pipeline:
                     },
                 }
         finally:
-            cap.release()
+            cap.stop()
 
     def __call__(
         self,
@@ -134,6 +152,7 @@ class Pipeline:
             for frame in self.read_video(cap, video_path, output_path):
                 fire_and_forget(frame_pipe(frame, frames % infer_frame_skip == 0))
                 frames += 1
+                time.sleep(1/fps)
         finally:
             end = perf_counter()
             mean_fps = frames / (end - start)
@@ -144,10 +163,9 @@ class Pipeline:
 @click.option("-v", "--video")
 @click.option("-o", "--output", default="Test")
 @click.option("--infer-fps", default=4)
-@click.option("--no-track", is_flag=True)
-def main(video: str, output: str, infer_fps: int, no_track: bool):
+def main(video: str, output: str, infer_fps: int):
     pipe = Pipeline()
-    pipe(video, output, infer_fps, no_track)
+    pipe(video, output, infer_fps)
 
 
 if __name__ == "__main__":

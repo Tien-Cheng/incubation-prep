@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from fastapi import APIRouter, FastAPI, File, Form
 
-from .embedder import DeepSORTEmbedder
+from embedder import DeepSORTEmbedder
 
 
 class BoundingBox(NamedTuple):
@@ -30,13 +30,13 @@ class Detection(BaseModel):
 
 class ObjectTracker:
     def __init__(
-        self, embedder: Type[DeepSORTEmbedder], embedder_kwargs: Optional[Dict] = None
+        self, embedder_kwargs: Optional[Dict] = None
     ):
         self.router = APIRouter()
         self.router.add_api_route("/infer/{stream}", self.track, methods=["POST"])
         if embedder_kwargs is None:
             embedder_kwargs = {}
-        self.embedder: DeepSORTEmbedder = embedder(**embedder_kwargs)
+        self.embedder: DeepSORTEmbedder = DeepSORTEmbedder(**embedder_kwargs)
 
         self.trackers: Dict[str, DeepSort] = {}
 
@@ -56,13 +56,16 @@ class ObjectTracker:
 
         results_per_image = []
         for frame, dets in zip(frames, dets_per_image):
+
             # Generate embeddings
             embeds = self.embedder(frame=frame, dets=dets)
-
-            # Get tracking results
-            tracks: List[Track] = self.trackers[stream].update_tracks(
-                dets, embeds=embeds, frame=frame
-            )
+            try:
+                # Get tracking results
+                tracks: List[Track] = self.trackers[stream].update_tracks(
+                    dets, embeds=embeds, frame=frame
+                )
+            except IndexError:
+                tracks = []
 
             # Process tracking results
             results = []
