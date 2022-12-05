@@ -1,2 +1,0 @@
-torch==1.13.0
-opencv-python-headless==4.6.0.66

@@ -19,8 +19,17 @@ dvc = {extras = ["gdrive"], version = "^2.34.2"}
 jina = "^3.11.0"
 tritonclient = "^2.28.0"
 yolov5 = {path = "yolov5-pip"}
-opencv-python = { file = "opencv_python-4.6.0.3725898-cp39-cp39-linux_x86_64.whl" }
+memory-profiler = "^0.61.0"
+redis-streams = "^0.1.0"
+redis = "^4.3.5"
+kafka = "^1.3.5"
+opencv-python = "^4.6.0.66"
+uvloop = "^0.17.0"
+vidgear = {extras = ["core"], version = "^0.2.6"}
+pyzmq = "^24.0.1"
 imagezmq = "^1.1.1"
+faust-streaming = "^0.10.0"
+gdown = "^4.5.4"
 
 
 [tool.poetry.group.dev.dependencies]

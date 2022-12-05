@@ -10,3 +10,6 @@
 [submodule "yolov5-pip"]
 	path = yolov5-pip
 	url = https://github.com/Tien-Cheng/yolov5-pip.git
+[submodule "deep-person-reid"]
+	path = deep-person-reid
+	url = https://github.com/KaiyangZhou/deep-person-reid.git

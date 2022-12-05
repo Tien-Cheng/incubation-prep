@@ -1,8 +1,0 @@
-jtype: ObjectTracker
-py_modules:
-  - executor.py
-metas:
-  name: ObjectTracker
-  description: 
-  url: 
-  keywords: ['']
