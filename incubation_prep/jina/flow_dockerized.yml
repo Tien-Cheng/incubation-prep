@@ -1,0 +1,27 @@
+jtype: Flow
+with:
+  port: 4091
+  prefetch: 5
+  protocol: grpc
+executors:
+  - name: YOLODetector
+    uses: docker://jina-yolov5:1.0
+    replicas: 3
+    uses_with:
+      weights_or_url: grpc://172.20.0.4:8001  # TODO: Retry
+      device: "0"
+      image_size: 640
+  - name: DeepSORT
+    uses: docker://jina-tracker:1.0
+    uses_with:
+      embedder_kwargs:
+        embedder: triton
+        embedder_model_name: mobilenet
+        embedder_model_version: "1"
+        triton_url: grpc://172.20.0.4:8001 # TODO: Retry
+  - name: Output
+    uses: docker://jina-stream-output:1.0
+    uses_with:
+      address: 127.0.0.1
+      port: 5555
+      zmq: True
