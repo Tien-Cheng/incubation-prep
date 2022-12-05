@@ -3,3 +3,5 @@ pydantic
 numpy
 Pillow
 uvicorn
+python-multipart
+opencv-python==4.5.5.64

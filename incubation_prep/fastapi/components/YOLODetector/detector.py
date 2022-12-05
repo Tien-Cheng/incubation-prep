@@ -1,4 +1,5 @@
 from io import BytesIO
+from os import getenv
 from typing import List, NamedTuple
 
 import numpy as np
@@ -11,7 +12,7 @@ from yolov5.models.common import Detections
 from fastapi import FastAPI, File
 
 app = FastAPI()
-model = YOLOv5("grpc://172.0.0.4:8001")
+model = YOLOv5(getenv("weights", "yolov5s.pt"))
 
 
 class BoundingBox(NamedTuple):
@@ -35,13 +36,13 @@ def get_detections(frames: List[bytes] = File(), size: int = 640):
     dets_per_image = [
         [
             Detection(
-                bbox=BoundingBox(*det[0, :4].int().tolist()),
-                confidence=det[0, 4].item(),
-                class_name=det[0, 5].item(),
+                bbox=BoundingBox(*det[:4].int().tolist()),
+                confidence=det[4].item(),
+                class_name=int(det[5].item()),
             )
-            for det in image_dets
+            for det in image_dets if det.size()[0] != 0
         ]
-        for image_dets in preds.tolist()
+        for image_dets in preds.pred
     ]
 
     return dets_per_image
