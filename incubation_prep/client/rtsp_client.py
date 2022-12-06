@@ -2,7 +2,7 @@ import datetime
 import time
 
 import cv2
-from vidgear.gears import CamGear, VideoGear
+from vidgear.gears import CamGear
 
 
 class Reconnecting_VideoGear:
