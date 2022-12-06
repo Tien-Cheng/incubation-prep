@@ -23,7 +23,7 @@ class Pipeline:
                 "triton_url": "grpc://172.20.0.4:8001",
             }
         ),
-        "output": StreamOutput(address="127.0.0.1", port="5555", zmq=True),
+        "output": StreamOutput(),
     }
 
     buffer_dets = DocumentArray()

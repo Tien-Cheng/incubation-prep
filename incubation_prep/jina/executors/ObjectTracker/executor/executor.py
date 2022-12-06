@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from deep_sort_realtime.deep_sort.track import Track
@@ -6,7 +6,7 @@ from deep_sort_realtime.deepsort_tracker import DeepSort
 
 from jina import Document, DocumentArray, Executor, requests
 
-from .embedder import DeepSORTEmbedder, Embedder
+from .embedder import DeepSORTEmbedder
 
 
 class ObjectTracker(Executor):

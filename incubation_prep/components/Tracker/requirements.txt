@@ -1,0 +1,13 @@
+# Common
+pyzmq
+imagezmq
+docarray
+confluent-kafka
+
+# Specific
+opencv-python==4.5.5.64
+deep-sort-realtime
+numpy
+torch
+torchvision
+Pillow

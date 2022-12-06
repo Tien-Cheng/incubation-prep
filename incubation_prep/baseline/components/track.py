@@ -1,19 +1,19 @@
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
-from jina import Document, DocumentArray, Executor, requests
+from docarray import Document, DocumentArray
 
 from .embedder import DeepSORTEmbedder
+from .component import Component
 
 
-class ObjectTracker(Executor):
+class ObjectTracker(Component):
     """"""
 
     def __init__(self, embedder_kwargs: Optional[Dict] = None, **kwargs):
-        super().__init__(**kwargs)
         if embedder_kwargs is None:
             embedder_kwargs = {}
         self.embedder = DeepSORTEmbedder(**embedder_kwargs)

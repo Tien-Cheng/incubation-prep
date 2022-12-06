@@ -6,9 +6,8 @@ from enum import Enum
 from logging import Logger
 from typing import Optional
 from os import getenv
-from json import loads, dumps
 
-from docarray import DocumentArray, Document
+from docarray import DocumentArray
 
 from imagezmq import ImageSender
 from confluent_kafka import Producer, Consumer, KafkaError, KafkaException
@@ -51,14 +50,14 @@ class Component(ABC):
             }
             self.producer = Producer(producer_conf)
             self.consumer = Consumer(consumer_conf)
-            self.produce_topic = getenv("KAFKA_PRODUCE_TOPIC", "dets")
-            self.consume_topic = getenv("KAFKA_CONSUME_TOPIC", "frames")
+            self.produce_topic = getenv("KAFKA_PRODUCE_TOPIC", None)
+            self.consume_topic = getenv("KAFKA_CONSUME_TOPIC", None)
         elif msg_broker == Broker.zmq:
             self.consumer = VideoStreamSubscriber(
-                hostname=getenv("ZMQ_HOSTNAME", "*"), port=getenv("ZMQ_PORT", "5555")
+                hostname=getenv("ZMQ_HOSTNAME", "*"), port=getenv("ZMQ_PORT_IN", "5555")
             )
             self.producer = ImageSender(
-                f"tcp://{getenv('ZMQ_HOSTNAME', '*')}:{getenv('ZMQ_PORT', '5555')}",
+                f"tcp://{getenv('ZMQ_HOSTNAME', '*')}:{getenv('ZMQ_PORT_OUT', '5556')}",
                 REQ_REP=False,
             )
         else:
@@ -112,6 +111,8 @@ class Component(ABC):
 
     def _process_kafka(self):
         try:
+            if not self.consume_topic:
+                raise ValueError("No consumer topic set!")
             self.consumer.subscribe(self.consume_topic)
             while True:
                 # Get frames
@@ -127,7 +128,7 @@ class Component(ABC):
                 frame_docs = DocumentArray.from_bytes(data)
                 result = self.__call__(frame_docs)
                 # Process Results
-                if self.producer:
+                if self.produce_topic:
                     self.producer.produce(self.produce_topic, value=result.to_bytes())
         except (SystemExit, KeyboardInterrupt):
             print("Exit due to keyboard interrupt")
