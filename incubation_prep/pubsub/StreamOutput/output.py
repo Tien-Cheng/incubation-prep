@@ -1,10 +1,12 @@
+import json
 from os import getenv
+from datetime import datetime 
 from typing import Dict, Optional, Union
 
 import cv2
 from vidgear.gears import NetGear, WriteGear
-
-from jina import DocumentArray
+from confluent_kafka import SerializingProducer
+from docarray import DocumentArray
 
 from component import Component
 
@@ -51,6 +53,13 @@ class StreamOutput(Component):
         if zmq:
             self.create_stream = self.create_stream_zmq
 
+        self.last_frame: Dict[str, str] = {}
+        self.metric_producer = SerializingProducer(
+            {
+                **self.conf,
+            }
+        )
+
     def create_stream(self, name: str):
         self.streams[name] = WriteGear(
             f"{self.address}:{self.port}/{name}",
@@ -74,44 +83,62 @@ class StreamOutput(Component):
         :param docs: _description_
         :type docs: DocumentArray
         """
-        for frame in docs:
-            # Get stream name
-            output_stream: str = frame.tags["output_stream"]
-            if output_stream not in self.streams:
-                self.create_stream(output_stream)
-            # VidGear will handle threading for us
-            if frame.matches:
-                bboxes, scores, classes, track_ids = frame.matches[
-                    :,
-                    (
-                        "tags__bbox",
-                        "tags__confidence",
-                        "tags__class_name",
-                        "tags__track_id",
-                    ),
-                ]
-                for (bbox, score, class_, id_) in zip(
-                    bboxes, scores, classes, track_ids
-                ):
-                    l, t, r, b = tuple(map(int, bbox))
-                    cv2.rectangle(frame.tensor, (l, t), (r, b), (0, 0, 255), 2)
-                    cv2.putText(
-                        frame.tensor,
-                        f"[ID: {id_}] {class_} ({score * 100:.2f}%)",
-                        (l, t - 8),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 0, 255),  # BGR
+        with self.timer:
+            for frame in docs:
+                # Get stream name
+                output_stream: str = frame.tags["output_stream"]
+
+                # Get frame ID
+                frame_id = frame.tags["frame_id"] 
+                if output_stream not in self.last_frame:
+                    self.last_frame[output_stream] = frame_id
+                if frame_id < self.last_frame[output_stream]:
+                    self.metric_producer.produce(
+                        self.metrics_topic,
+                        value=json.dumps({
+                            "type" : "dropped_frame",
+                            "timestamp" : datetime.utcnow().isoformat(),
+                            "executor" : self.executor_name
+                        }).encode('utf-8')
                     )
-            cv2.resize(frame.tensor, (self.width, self.height))
-            try:
-                if self.zmq:
-                    self.streams[output_stream].send(frame.tensor)
+                    continue
                 else:
-                    self.streams[output_stream].write(frame.tensor)
-            except:
-                pass
-        return docs
+                    self.last_frame[output_stream] = frame_id
+                if output_stream not in self.streams:
+                    self.create_stream(output_stream)
+                # VidGear will handle threading for us
+                if frame.matches:
+                    bboxes, scores, classes, track_ids = frame.matches[
+                        :,
+                        (
+                            "tags__bbox",
+                            "tags__confidence",
+                            "tags__class_name",
+                            "tags__track_id",
+                        ),
+                    ]
+                    for (bbox, score, class_, id_) in zip(
+                        bboxes, scores, classes, track_ids
+                    ):
+                        l, t, r, b = tuple(map(int, bbox))
+                        cv2.rectangle(frame.tensor, (l, t), (r, b), (0, 0, 255), 2)
+                        cv2.putText(
+                            frame.tensor,
+                            f"[ID: {id_}] {class_} ({score * 100:.2f}%)",
+                            (l, t - 8),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (0, 0, 255),  # BGR
+                        )
+                cv2.resize(frame.tensor, (self.width, self.height))
+                try:
+                    if self.zmq:
+                        self.streams[output_stream].send(frame.tensor)
+                    else:
+                        self.streams[output_stream].write(frame.tensor)
+                except:
+                    pass
+            return docs
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ RUN pip install --default-timeout=1000 --compile -r requirements.txt
 COPY . /workdir/
 WORKDIR /workdir
 
+ENV EXECUTOR_NAME="tracker"
 ENV BROKER="kafka"
 ENV KAFKA_ADDRESS="127.0.0.1:9092"
 ENV ZMQ_HOSTNAME="*"
@@ -16,6 +17,7 @@ ENV ZMQ_PORT_OUT="5003"
 ENV KAFKA_CONSUMER_GROUP="track"
 ENV KAFKA_CONSUME_TOPIC="dets"
 ENV KAFKA_PRODUCE_TOPIC="tracks"
+ENV KAFKA_METRICS_TOPIC="metrics"
 
 EXPOSE 5003
 EXPOSE 5002

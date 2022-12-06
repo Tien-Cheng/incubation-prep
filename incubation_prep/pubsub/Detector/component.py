@@ -11,6 +11,7 @@ from docarray import DocumentArray
 
 from imagezmq import ImageSender
 from confluent_kafka import Producer, Consumer, KafkaError, KafkaException
+from simpletimer import StopwatchKafka
 
 from zmq_subscriber import VideoStreamSubscriber
 
@@ -26,13 +27,22 @@ class Component(ABC):
     logger = Logger(__name__)
 
     conf = {
-        "bootstrap.servers": getenv("KAFKA_ADDRESS", "localhost:9092"),
+        "bootstrap.servers": getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
         "client.id": socket.gethostname(),
         "message.max.bytes": 1000000000,
     }
+    metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
+    executor_name = getenv("EXECUTOR_NAME")
 
     # Set up producer for Kafka metrics
-    metric_producer = Producer(conf)
+    timer = StopwatchKafka(
+        bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+        kafka_topic=metrics_topic,
+        metadata = {
+            "type" : "processing_time",
+            "executor" : executor_name
+        }
+    )
 
     def __init__(self, msg_broker: Optional[Broker] = None):
         if msg_broker is None:
@@ -43,15 +53,17 @@ class Component(ABC):
             producer_conf = {**self.conf}
             consumer_conf = {
                 **self.conf,
-                # "group.id": getenv("KAFKA_CONSUMER_GROUP", "foo"),
+                "group.id": getenv("KAFKA_CONSUMER_GROUP", "foo"),
                 "auto.offset.reset": "smallest",
                 "fetch.max.bytes": 1000000000,
                 "max.partition.fetch.bytes": 1000000000,
             }
-            self.producer = Producer(producer_conf)
-            self.consumer = Consumer(consumer_conf)
             self.produce_topic = getenv("KAFKA_PRODUCE_TOPIC", None)
             self.consume_topic = getenv("KAFKA_CONSUME_TOPIC", None)
+            if self.produce_topic:
+                self.producer = Producer(producer_conf)
+            if self.consume_topic:
+                self.consumer = Consumer(consumer_conf)
         elif msg_broker == Broker.zmq:
             self.consumer = VideoStreamSubscriber(
                 hostname=getenv("ZMQ_HOSTNAME", "*"), port=getenv("ZMQ_PORT_IN", "5555")
@@ -95,6 +107,7 @@ class Component(ABC):
                 if data is None:
                     continue
                 # Convert metadata to docarray
+                assert isinstance(data, bytes), "Is byte"
                 frame_docs = DocumentArray.from_bytes(data)
                 result = self.__call__(frame_docs)
                 # Process Results
@@ -125,7 +138,7 @@ class Component(ABC):
                     else:
                         raise KafkaException(data.error())
                 # Convert metadata to docarray
-                frame_docs = DocumentArray.from_bytes(data)
+                frame_docs = DocumentArray.from_bytes(data.value())
                 result = self.__call__(frame_docs)
                 # Process Results
                 if self.produce_topic:

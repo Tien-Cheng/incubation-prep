@@ -3,6 +3,7 @@ pyzmq
 imagezmq
 docarray
 confluent-kafka
+simpletimer-kafka==0.1.5
 
 # Specific
 opencv-python==4.5.5.64

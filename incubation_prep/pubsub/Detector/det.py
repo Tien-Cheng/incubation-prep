@@ -27,28 +27,29 @@ class YOLODetector(Component):
     def __call__(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # NOTE: model currently does not support batch inference
         # list only converts first dim to list, not recursively like tolist
-        traversed_docs = docs
-        frames: List[np.ndarray] = list(traversed_docs.tensors)
+        with self.timer:
+            traversed_docs = docs
+            frames: List[np.ndarray] = list(traversed_docs.tensors)
 
-        # Either call Triton or run inference locally
-        results: Detections = self.model.predict(frames, size=self.image_size)
-        for doc, dets in zip(traversed_docs, results.pred):
-            # Make every det a match Document
-            self.logger.info(dets)
-            doc.matches = DocumentArray(
-                [
-                    Document(
-                        tags={
-                            "bbox": det[:4].tolist(),  # ltrb format
-                            "class_name": int(det[5].item()),
-                            "confidence": det[4].item(),
-                        }
-                    )
-                    for det in dets
-                    if det.size()[0] != 0
-                ]
-            )
-        return docs
+            # Either call Triton or run inference locally
+            results: Detections = self.model.predict(frames, size=self.image_size)
+            for doc, dets in zip(traversed_docs, results.pred):
+                # Make every det a match Document
+                self.logger.info(dets)
+                doc.matches = DocumentArray(
+                    [
+                        Document(
+                            tags={
+                                "bbox": det[:4].tolist(),  # ltrb format
+                                "class_name": int(det[5].item()),
+                                "confidence": det[4].item(),
+                            }
+                        )
+                        for det in dets
+                        if det.size()[0] != 0
+                    ]
+                )
+            return docs
 
 
 if __name__ == "__main__":
