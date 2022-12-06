@@ -5,7 +5,7 @@ import cv2
 
 from jina import DocumentArray
 
-from ..component import Component
+from component import Component
 
 
 class SaveStream(Component):

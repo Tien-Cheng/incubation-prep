@@ -6,7 +6,7 @@ from vidgear.gears import NetGear, WriteGear
 
 from jina import DocumentArray
 
-from ..component import Component
+from component import Component
 
 
 class StreamOutput(Component):

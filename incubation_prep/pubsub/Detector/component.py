@@ -12,7 +12,7 @@ from docarray import DocumentArray
 from imagezmq import ImageSender
 from confluent_kafka import Producer, Consumer, KafkaError, KafkaException
 
-from .zmq_subscriber import VideoStreamSubscriber
+from zmq_subscriber import VideoStreamSubscriber
 
 
 class Broker(str, Enum):
@@ -28,7 +28,7 @@ class Component(ABC):
     conf = {
         "bootstrap.servers": getenv("KAFKA_ADDRESS", "localhost:9092"),
         "client.id": socket.gethostname(),
-        "max.request.size": 2147483647,
+        "message.max.bytes": 1000000000,
     }
 
     # Set up producer for Kafka metrics
@@ -40,13 +40,13 @@ class Component(ABC):
         self.broker = msg_broker
 
         if msg_broker == Broker.kafka:
-            producer_conf = {**self.conf, "socket.buffer.size": 2147483647}
+            producer_conf = {**self.conf}
             consumer_conf = {
                 **self.conf,
-                "group.id": getenv("KAFKA_CONSUMER_GROUP", "foo"),
+                # "group.id": getenv("KAFKA_CONSUMER_GROUP", "foo"),
                 "auto.offset.reset": "smallest",
-                "fetch.message.max.bytes": 2147483647,
-                "max.partition.fetch.bytes": 2147483647,
+                "fetch.max.bytes": 1000000000,
+                "max.partition.fetch.bytes": 1000000000,
             }
             self.producer = Producer(producer_conf)
             self.consumer = Consumer(consumer_conf)
@@ -113,7 +113,7 @@ class Component(ABC):
         try:
             if not self.consume_topic:
                 raise ValueError("No consumer topic set!")
-            self.consumer.subscribe(self.consume_topic)
+            self.consumer.subscribe([self.consume_topic])
             while True:
                 # Get frames
                 data = self.consumer.poll(timeout=1)

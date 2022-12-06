@@ -7,8 +7,8 @@ from deep_sort_realtime.deepsort_tracker import DeepSort
 
 from docarray import Document, DocumentArray
 
+from component import Component
 from .embedder import DeepSORTEmbedder
-from ..component import Component
 
 
 class ObjectTracker(Component):

@@ -6,7 +6,7 @@ from docarray import Document, DocumentArray
 from yolov5 import YOLOv5
 from yolov5.models.common import Detections
 
-from ..component import Component
+from component import Component
 
 
 class YOLODetector(Component):
