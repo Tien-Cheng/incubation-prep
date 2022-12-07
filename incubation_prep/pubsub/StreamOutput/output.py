@@ -121,7 +121,11 @@ class StreamOutput(Component):
                     self.streams[output_stream].send(frame.tensor)
                 else:
                     self.streams[output_stream].write(frame.tensor)
-            except:
+            except ValueError:
+                if self.zmq:
+                    self.create_stream_zmq(output_stream)
+                else:
+                    self.create_stream(output_stream)
                 pass
             return docs
 
