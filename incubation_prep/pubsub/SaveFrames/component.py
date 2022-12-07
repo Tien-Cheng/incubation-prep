@@ -34,7 +34,7 @@ class Component(ABC):
     metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
     executor_name = getenv("EXECUTOR_NAME")
 
-    executor_id = executor_name + datetime.now().isoformat()
+    executor_id = executor_name + "-" + datetime.now().isoformat()
 
     # Set up producer for Kafka metrics
     timer = StopwatchKafka(
@@ -202,6 +202,7 @@ class Component(ABC):
                 ).encode("utf-8"),
             )
             self.metric_producer.poll(0)
+            self.logger.warn("Dropped frame}")
 
         with self.timer(
             metadata={

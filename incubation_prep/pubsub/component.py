@@ -202,7 +202,7 @@ class Component(ABC):
                 ).encode("utf-8"),
             )
             self.metric_producer.poll(0)
-            self.logger.warn("Dropped frame}")
+            self.logger.warn("Dropped frame")
 
         with self.timer(
             metadata={

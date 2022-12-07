@@ -34,7 +34,7 @@ class Component(ABC):
     metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
     executor_name = getenv("EXECUTOR_NAME")
 
-    executor_id = executor_name + datetime.now().isoformat()
+    executor_id = executor_name + "-" + datetime.now().isoformat()
 
     # Set up producer for Kafka metrics
     timer = StopwatchKafka(
