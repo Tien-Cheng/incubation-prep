@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pubsub-stream-output-1
+  labels:
+    app: pubsub-stream-output-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pubsub-stream-output-1
+  template:
+    metadata:
+      labels:
+        app: pubsub-stream-output-1
+    spec:
+      containers:
+      - name: pubsub-stream-output-1
+        image: pubsub-stream-output:1.0
+        resources:
+          limits:
+            cpu: "1.0"
+            memory: "8Gi"
+          requests:
+            cpu: "1.0"
+            memory: "8Mi"
+        # Add the following env section
+        env:
+        - name: BROKER
+          value: kafka
+        - name: KAFKA_CONSUMER_GROUP
+          value: out
+        - name: KAFKA_CONSUME_TOPIC
+          value: tracks
+        # - name: OUTPUT_USE_ZMQ
+        #   value: True
+        - name: OUTPUT_ADDRESS
+          value:  <TODO>
+        - name: OUTPUT_PORT
+          value: <TODO>
+        envFrom:
+          - configMapRef:
+              name: kafka-common

@@ -1,0 +1,9 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-common
+data:
+  # Add key-value pairs for your configuration data here
+  KAFKA_ADDRESS: <TODO>
+  KAFKA_METRICS_TOPIC: metrics

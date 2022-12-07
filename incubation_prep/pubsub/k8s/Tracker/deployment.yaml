@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pubsub-tracker-1
+  labels:
+    app: pubsub-tracker-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pubsub-tracker-1
+  template:
+    metadata:
+      labels:
+        app: pubsub-tracker-1
+    spec:
+      containers:
+      - name: pubsub-tracker-1
+        image: pubsub-tracker:1.0
+        resources:
+          limits:
+            cpu: "1.0"
+            memory: "8Gi"
+          requests:
+            cpu: "1.0"
+            memory: "8Mi"
+        # Add the following env section
+        env:
+        - name: BROKER
+          value: kafka
+        - name: KAFKA_CONSUMER_GROUP
+          value: track
+        - name: KAFKA_CONSUME_TOPIC
+          value: dets
+        - name: KAFKA_PRODUCE_TOPIC
+          value: tracks
+        - name: TRACKER_EMBEDDER
+          value: mobilenet # mobilenet or triton
+        - name: TRACKER_EMBEDDER_MODEL_NAME
+          value: mobilenet
+        # - name: TRACKER_EMBEDDER_MODEL_WTS
+        #   value:
+        - name: TRACKER_EMBEDDER_MODEL_VERSION
+          value: "1"
+        - name: TRACKER_TRITON_URL
+          value: <TODO>
+        envFrom:
+          - configMapRef:
+              name: kafka-common

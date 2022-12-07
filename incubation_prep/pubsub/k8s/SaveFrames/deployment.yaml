@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pubsub-save-frames-1
+  labels:
+    app: pubsub-save-frames-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pubsub-save-frames-1
+  template:
+    metadata:
+      labels:
+        app: pubsub-save-frames-1
+    spec:
+      containers:
+      - name: pubsub-save-frames-1
+        image: pubsub-save-frames:1.0
+        resources:
+          limits:
+            cpu: "1.0"
+            memory: "8Gi"
+          requests:
+            cpu: "1.0"
+            memory: "8Mi"
+        # Add the following env section
+        env:
+        - name: BROKER
+          value: kafka
+        - name: KAFKA_CONSUMER_GROUP
+          value: out
+        - name: KAFKA_CONSUME_TOPIC
+          value: tracks
+        - name: SAVE_DIR
+          value: /data/processed/
+        envFrom:
+          - configMapRef:
+              name: kafka-common

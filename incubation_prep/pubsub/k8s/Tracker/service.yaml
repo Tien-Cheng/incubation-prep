@@ -1,0 +1,11 @@
+# service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: pubsub-tracker-1
+  labels:
+    app: pubsub-tracker-1
+spec:
+  type: ClusterIP
+  selector:
+    app: pubsub-tracker-1
