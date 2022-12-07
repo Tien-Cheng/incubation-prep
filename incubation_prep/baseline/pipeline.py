@@ -33,6 +33,7 @@ class Pipeline:
         try:
             for frame_id in count():
                 success, frame = cap.read()
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 if not success:
                     break
                 yield DocumentArray(

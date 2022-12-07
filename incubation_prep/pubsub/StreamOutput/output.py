@@ -1,6 +1,6 @@
 import json
 from os import getenv
-from datetime import datetime 
+from datetime import datetime
 from typing import Dict, Optional, Union
 
 import cv2
@@ -72,7 +72,7 @@ class StreamOutput(Component):
         self.streams[name] = NetGear(
             address=self.address,
             port=self.port,
-            logging=True,
+            logging=False,
             receive_mode=False,
             **self.zmq_config,
         )
@@ -89,18 +89,21 @@ class StreamOutput(Component):
                 output_stream: str = frame.tags["output_stream"]
 
                 # Get frame ID
-                frame_id = frame.tags["frame_id"] 
+                frame_id = frame.tags["frame_id"]
                 if output_stream not in self.last_frame:
                     self.last_frame[output_stream] = frame_id
                 if frame_id < self.last_frame[output_stream]:
                     self.metric_producer.produce(
                         self.metrics_topic,
-                        value=json.dumps({
-                            "type" : "dropped_frame",
-                            "timestamp" : datetime.utcnow().isoformat(),
-                            "executor" : self.executor_name
-                        }).encode('utf-8')
+                        value=json.dumps(
+                            {
+                                "type": "dropped_frame",
+                                "timestamp": datetime.utcnow().isoformat(),
+                                "executor": self.executor_name,
+                            }
+                        ).encode("utf-8"),
                     )
+                    self.metric_producer.poll(0)
                     continue
                 else:
                     self.last_frame[output_stream] = frame_id
@@ -128,10 +131,14 @@ class StreamOutput(Component):
                             (l, t - 8),
                             cv2.FONT_HERSHEY_SIMPLEX,
                             1,
-                            (0, 0, 255),  # BGR
+                            (255, 0, 0),
                         )
-                cv2.resize(frame.tensor, (self.width, self.height))
+
+                # We assume input is RGB
+                frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
+                frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
                 try:
+                    self.logger.info(f"[{output_stream}] Sending frame")
                     if self.zmq:
                         self.streams[output_stream].send(frame.tensor)
                     else:

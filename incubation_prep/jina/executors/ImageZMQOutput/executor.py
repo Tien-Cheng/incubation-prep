@@ -25,7 +25,8 @@ def write_frame(
                 1,
                 (255, 255, 0),
             )
-    cv2.resize(frame.tensor, (width, height))
+    frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
+    frame.tensor = cv2.resize(frame.tensor, (width, height))
     stream.send_image(name, frame.tensor)
     frame.pop("tensor")
 

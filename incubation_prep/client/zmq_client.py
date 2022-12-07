@@ -16,7 +16,6 @@ while True:
         break
 
     # {do something with the frame here}
-
     cv2.resize(frame, (1280, 720))
     # Show output window
     cv2.imshow("output_zmq", frame)

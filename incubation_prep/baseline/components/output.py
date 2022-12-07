@@ -99,9 +99,10 @@ class StreamOutput(Component):
                         (l, t - 8),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1,
-                        (0, 0, 255),  # BGR
+                        (255, 0, 0),  
                     )
-            cv2.resize(frame.tensor, (self.width, self.height))
+            frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
+            frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
             try:
                 if self.zmq:
                     self.streams[output_stream].send(frame.tensor)

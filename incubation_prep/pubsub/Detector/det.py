@@ -30,8 +30,8 @@ class YOLODetector(Component):
         with self.timer:
             traversed_docs = docs
             frames: List[np.ndarray] = list(traversed_docs.tensors)
-
             # Either call Triton or run inference locally
+            # assumption: image sent is RGB
             results: Detections = self.model.predict(frames, size=self.image_size)
             for doc, dets in zip(traversed_docs, results.pred):
                 # Make every det a match Document

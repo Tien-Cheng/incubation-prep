@@ -31,6 +31,7 @@ class YOLODetector(Component):
 
         start = perf_counter()
         # Either call Triton or run inference locally
+        # Assume RGB
         results: Detections = self.model.predict(frames, size=self.image_size)
         end = perf_counter()
         self.logger.info(f"Time taken to predict frame: {end - start}")

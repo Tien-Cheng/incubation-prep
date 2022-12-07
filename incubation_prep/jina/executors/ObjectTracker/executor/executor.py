@@ -1,3 +1,4 @@
+from os import getenv
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -5,6 +6,7 @@ from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
 from jina import Document, DocumentArray, Executor, requests
+from simpletimer import StopwatchKafka
 
 from .embedder import DeepSORTEmbedder
 
@@ -18,25 +20,33 @@ class ObjectTracker(Executor):
             embedder_kwargs = {}
         self.embedder = DeepSORTEmbedder(**embedder_kwargs)
         self.trackers: Dict[str, DeepSort] = {}
-
+        metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
+        executor_name = getenv("EXECUTOR_NAME")
+        self.timer = StopwatchKafka(
+            bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+            kafka_topic=metrics_topic,
+            metadata={"type": "processing_time", "executor": executor_name},
+            kafka_parition=-1,
+        )
     @requests
     def track(self, docs: DocumentArray, **kwargs):
-        all_dets = docs.map(self._get_dets)
-        for frame, dets in zip(docs, all_dets):
-            if not frame.matches:
-                continue
-            output_stream: str = frame.tags["output_stream"]
-            if output_stream not in self.trackers:
-                self._create_tracker(output_stream)
-            # embedding of each cropped det
-            image = frame.tensor
-            if not frame.matches.embeddings:
-                embeds = self.embedder(image, dets)
-            else:
-                embeds = frame.matches.embeddings
-            tracks = self.trackers[output_stream].update_tracks(dets, embeds=embeds)
-            # Update matches using tracks
-            frame.matches = self._update_dets(tracks)
+        with self.timer:
+            all_dets = docs.map(self._get_dets)
+            for frame, dets in zip(docs, all_dets):
+                if not frame.matches:
+                    continue
+                output_stream: str = frame.tags["output_stream"]
+                if output_stream not in self.trackers:
+                    self._create_tracker(output_stream)
+                # embedding of each cropped det
+                image = frame.tensor
+                if not frame.matches.embeddings:
+                    embeds = self.embedder(image, dets)
+                else:
+                    embeds = frame.matches.embeddings
+                tracks = self.trackers[output_stream].update_tracks(dets, embeds=embeds)
+                # Update matches using tracks
+                frame.matches = self._update_dets(tracks)
 
     def _create_tracker(self, name: str):
         tracker = DeepSort(embedder=None)

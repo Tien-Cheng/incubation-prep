@@ -47,19 +47,21 @@ class SaveStream(Component):
                             (l, t - 8),
                             cv2.FONT_HERSHEY_SIMPLEX,
                             1,
-                            (0, 0, 255),  # BGR
+                            (255, 0, 0),  
                         )
-                cv2.resize(frame.tensor, (self.width, self.height))
+                frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
                 # Save
                 filename = f"video-{frame.tags['output_stream']}-frame-{frame.tags['frame_id']}-{str(datetime.now())}.jpg"
                 path = f"{self.path}/{filename}"
+                # We assume input is RGB
+                frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
                 cv2.imwrite(str(path), frame.tensor)
             return docs
 
 
 if __name__ == "__main__":
     executor = SaveStream(
-        path=getenv("SAVE_DIR", "videos")
+        path=getenv("SAVE_DIR", "videos"),
         width=int(getenv("OUTPUT_WIDTH", 1280)),
         height=int(getenv("OUTPUT_HEIGHT", 720)),
     )

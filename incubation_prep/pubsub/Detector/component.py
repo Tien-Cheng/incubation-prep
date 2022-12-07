@@ -7,7 +7,7 @@ from logging import Logger
 from typing import Optional
 from os import getenv
 
-from docarray import DocumentArray
+from docarray import DocumentArray, Document
 
 from imagezmq import ImageSender
 from confluent_kafka import Producer, Consumer, KafkaError, KafkaException
@@ -38,10 +38,8 @@ class Component(ABC):
     timer = StopwatchKafka(
         bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
         kafka_topic=metrics_topic,
-        metadata = {
-            "type" : "processing_time",
-            "executor" : executor_name
-        }
+        metadata={"type": "processing_time", "executor": executor_name},
+        kafka_parition=-1,
     )
 
     def __init__(self, msg_broker: Optional[Broker] = None):
@@ -82,7 +80,7 @@ class Component(ABC):
     ) -> DocumentArray:
         return data
 
-    def serve(self):
+    def serve(self, send_tensors: bool = True):
         """
         This is a wrapper around __call__ that will do the following:
 
@@ -95,11 +93,11 @@ class Component(ABC):
         The choice of processor will depend on an environment variable
         """
         if self.broker == Broker.zmq:
-            self._process_zmq()
+            self._process_zmq(send_tensors)
         elif self.broker == Broker.kafka:
-            self._process_kafka()
+            self._process_kafka(send_tensors)
 
-    def _process_zmq(self):
+    def _process_zmq(self, send_tensors):
         try:
             while True:
                 # Get frames
@@ -109,7 +107,12 @@ class Component(ABC):
                 # Convert metadata to docarray
                 assert isinstance(data, bytes), "Is byte"
                 frame_docs = DocumentArray.from_bytes(data)
+                if not send_tensors:
+                    if frame_docs[..., "uri"] is not None:
+                        frame_docs[...].apply(self._load_uri_to_image_tensor)
                 result = self.__call__(frame_docs)
+                if not send_tensors:
+                    frame_docs[...].tensors = None
                 # Process Results
                 if self.producer:
                     self.producer.zmq_socket.send(result.to_bytes())
@@ -122,7 +125,7 @@ class Component(ABC):
         finally:
             self.consumer.close()
 
-    def _process_kafka(self):
+    def _process_kafka(self, send_tensors):
         try:
             if not self.consume_topic:
                 raise ValueError("No consumer topic set!")
@@ -139,10 +142,16 @@ class Component(ABC):
                         raise KafkaException(data.error())
                 # Convert metadata to docarray
                 frame_docs = DocumentArray.from_bytes(data.value())
+                if not send_tensors:
+                    if frame_docs[..., "uri"] is not None:
+                        frame_docs[...].apply(self._load_uri_to_image_tensor)
                 result = self.__call__(frame_docs)
+                if not send_tensors:
+                    frame_docs[...].tensors = None
                 # Process Results
                 if self.produce_topic:
                     self.producer.produce(self.produce_topic, value=result.to_bytes())
+                    self.producer.poll(0)
         except (SystemExit, KeyboardInterrupt):
             print("Exit due to keyboard interrupt")
         except Exception as ex:
@@ -151,3 +160,9 @@ class Component(ABC):
             traceback.print_exc()
         finally:
             self.consumer.close()
+
+    @staticmethod
+    def _load_uri_to_image_tensor(doc: Document) -> Document:
+        if doc.uri:
+            doc = doc.load_uri_to_image_tensor()
+        return doc

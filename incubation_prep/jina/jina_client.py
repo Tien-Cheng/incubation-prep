@@ -1,10 +1,8 @@
 import asyncio
 import gc
-from vidgear.gears import CamGear
 import threading
 from itertools import count
 from time import perf_counter, sleep
-import datetime
 
 import click
 import cv2
@@ -33,6 +31,7 @@ class JinaClient:
         try:
             for frame_count in count():
                 success, frame = cap.read()
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 yield Document(
                     tensor=np.array(frame),
                     tags={

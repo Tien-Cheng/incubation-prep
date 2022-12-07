@@ -1,6 +1,8 @@
 import traceback
 import socket
 
+import numpy as np
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from logging import Logger
@@ -8,7 +10,6 @@ from typing import Optional
 from os import getenv
 
 from docarray import DocumentArray, Document
-
 from imagezmq import ImageSender
 from confluent_kafka import Producer, Consumer, KafkaError, KafkaException
 from simpletimer import StopwatchKafka
@@ -165,4 +166,6 @@ class Component(ABC):
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
             doc = doc.load_uri_to_image_tensor()
+            # Convert channels from NHWC to NCHW
+            doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc

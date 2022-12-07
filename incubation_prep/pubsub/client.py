@@ -20,6 +20,7 @@ class KafkaClient:
         self.client = Producer(
             {
                 "bootstrap.servers": bootstrap_servers,
+                "message.max.bytes": 1000000000,
             }
         )
         self.producer_topic = producer_topic
@@ -29,6 +30,9 @@ class KafkaClient:
         try:
             for frame_count in count():
                 success, frame = cap.read()
+                if not success:
+                    print("Error reading frame")
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 yield Document(
                     tensor=np.array(frame),
                     tags={
@@ -46,6 +50,7 @@ class KafkaClient:
         for frame in self.read_frames(cap, video_path):
             serialized_docarray = DocumentArray([frame]).to_bytes()
             self.client.produce(self.producer_topic, value=serialized_docarray)
+            self.client.poll(0)
             print("Sent frame!")
             sleep(1 / 30)
 
