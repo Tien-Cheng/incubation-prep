@@ -1,7 +1,6 @@
-import datetime
 from itertools import count
 from os import getenv
-from time import perf_counter, sleep
+from time import sleep
 
 import click
 import cv2
@@ -10,7 +9,6 @@ from confluent_kafka import Producer
 from docarray import Document, DocumentArray
 
 _loop = None
-
 
 class KafkaClient:
     def __init__(
@@ -25,8 +23,12 @@ class KafkaClient:
         self.producer_topic = producer_topic
 
     @staticmethod
-    def read_frames(cap: cv2.VideoCapture, video_path, fps: int = 30):
+    def read_frames(cap: cv2.VideoCapture, video_path):
         try:
+            # Try to get FPS
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            if np.isinf(fps):
+                fps = 25
             for frame_count in count():
                 success, frame = cap.read()
                 if not success:
@@ -40,6 +42,7 @@ class KafkaClient:
                         "output_stream": "test2",
                     },
                 )
+                sleep(1/fps)
         finally:
             cap.release()
         return
@@ -51,7 +54,6 @@ class KafkaClient:
             self.client.produce(self.producer_topic, value=serialized_docarray)
             self.client.poll(0)
             print("Sent frame!")
-            sleep(1 / 30)
 
 
 @click.command()
