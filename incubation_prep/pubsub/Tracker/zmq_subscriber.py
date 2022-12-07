@@ -1,7 +1,9 @@
+import threading
+
+import imagezmq
 import zmq
 import zmq.asyncio
-import imagezmq
-import threading
+
 
 class DocumentSubscriber:
     def __init__(self, hostname, port):
@@ -18,7 +20,10 @@ class DocumentSubscriber:
         flag = self._data_ready.wait(timeout=timeout)
         if not flag:
             raise TimeoutError(
-                "Timeout while reading from subscriber tcp://{}:{}".format(self.hostname, self.port))
+                "Timeout while reading from subscriber tcp://{}:{}".format(
+                    self.hostname, self.port
+                )
+            )
         self._data_ready.clear()
         return self._data
 
@@ -26,20 +31,20 @@ class DocumentSubscriber:
         context = zmq.asyncio.Context()
         socket = context.socket(zmq.SUB)
         socket.connect(f"tcp://{self.hostname}:{self.port}")
-        socket.setsockopt(zmq.SUBSCRIBE, b'')
+        socket.setsockopt(zmq.SUBSCRIBE, b"")
 
         while not self._stop:
             # self._data = receiver.recv_image()
-            self._data = await socket.recv() # receive bytes
+            self._data = await socket.recv()  # receive bytes
             self._data_ready.set()
         socket.close()
 
     def close(self):
         self._stop = True
 
+
 # Helper class implementing an IO deamon thread
 class VideoStreamSubscriber:
-
     def __init__(self, hostname, port):
         self.hostname = hostname
         self.port = port
@@ -53,15 +58,20 @@ class VideoStreamSubscriber:
         flag = self._data_ready.wait(timeout=timeout)
         if not flag:
             raise TimeoutError(
-                "Timeout while reading from subscriber tcp://{}:{}".format(self.hostname, self.port))
+                "Timeout while reading from subscriber tcp://{}:{}".format(
+                    self.hostname, self.port
+                )
+            )
         self._data_ready.clear()
         return self._data
 
     def _run(self):
-        receiver = imagezmq.ImageHub("tcp://{}:{}".format(self.hostname, self.port), REQ_REP=False)
+        receiver = imagezmq.ImageHub(
+            "tcp://{}:{}".format(self.hostname, self.port), REQ_REP=False
+        )
         while not self._stop:
             # self._data = receiver.recv_image()
-            self._data = receiver.zmq_socket.recv() # receive bytes
+            self._data = receiver.zmq_socket.recv()  # receive bytes
             self._data_ready.set()
         receiver.close()
 

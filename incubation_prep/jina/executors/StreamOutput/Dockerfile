@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y gcc libc6-dev g
 COPY requirements.txt /requirements.txt
 RUN pip install --default-timeout=1000 --compile -r requirements.txt
 
+ENV EXECUTOR_NAME="stream_output"
+ENV KAFKA_ADDRESS="127.0.0.1:9092"
+ENV KAFKA_METRICS_TOPIC="metrics"
+
 # setup the workspace
 COPY . /workdir/
 WORKDIR /workdir

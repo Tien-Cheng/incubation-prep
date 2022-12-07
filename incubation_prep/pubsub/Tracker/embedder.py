@@ -28,7 +28,7 @@ class DeepSORTEmbedder:
         # use a separate instance of deepsort
         # so we can share 1 embedder for all trackers
         self.embedder = embedder
-        self.bgr = bgr # assume image alr is RGB
+        self.bgr = bgr  # assume image alr is RGB
         self.embedder_model_name = embedder_model_name
         self.embedder_wts = embedder_wts
         self.embedder_model_version = str(embedder_model_version)

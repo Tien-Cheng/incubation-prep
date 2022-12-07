@@ -6,12 +6,11 @@ import numpy as np
 import uvicorn
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
+from embedder import DeepSORTEmbedder
 from PIL import Image
 from pydantic import BaseModel
 
 from fastapi import APIRouter, FastAPI, File, Form
-
-from embedder import DeepSORTEmbedder
 
 
 class BoundingBox(NamedTuple):
@@ -29,9 +28,7 @@ class Detection(BaseModel):
 
 
 class ObjectTracker:
-    def __init__(
-        self, embedder_kwargs: Optional[Dict] = None
-    ):
+    def __init__(self, embedder_kwargs: Optional[Dict] = None):
         self.router = APIRouter()
         self.router.add_api_route("/infer/{stream}", self.track, methods=["POST"])
         if embedder_kwargs is None:

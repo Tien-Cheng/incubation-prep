@@ -1,15 +1,15 @@
 import json
 import socket
+from datetime import datetime
 from os import getenv
 from typing import Dict, Optional, Union
-from datetime import datetime
 
 import cv2
+from confluent_kafka import SerializingProducer
+from simpletimer import StopwatchKafka
 from vidgear.gears import NetGear, WriteGear
 
 from jina import DocumentArray, Executor, requests
-from simpletimer import StopwatchKafka
-from confluent_kafka import SerializingProducer
 
 
 class StreamOutput(Executor):
@@ -111,7 +111,7 @@ class StreamOutput(Executor):
                         value=json.dumps(
                             {
                                 "type": "dropped_frame",
-                                "timestamp": datetime.utcnow().isoformat(),
+                                "timestamp": datetime.now().isoformat(),
                                 "executor": self.executor_name,
                             }
                         ).encode("utf-8"),

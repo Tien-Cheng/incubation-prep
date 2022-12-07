@@ -69,7 +69,7 @@ spec:
         - --uses-metas
         - '{}'
         - --uses-with
-        - '{"address": "127.0.0.1", "port": 5555, "zmq": true}'
+        - '{"address": "$OUTPUT_ADDRESS", "port": "$OUTPUT_PORT", "zmq": "$OUTPUT_USE_ZMQ"}'
         - --native
         command:
         - jina

@@ -69,8 +69,9 @@ spec:
         - --uses-metas
         - '{}'
         - --uses-with
-        - '{"embedder_kwargs": {"embedder": "triton", "embedder_model_name": "mobilenet",
-          "embedder_model_version": 1, "triton_url": "grpc://172.20.0.4:8001"}}'
+        - '{"embedder_kwargs": {"embedder": "$TRACKER_EMBEDDER", "embedder_model_name":
+          "$TRACKER_EMBEDDER_MODEL_NAME", "embedder_model_version": "$TRACKER_EMBEDDER_MODEL_VERSION",
+          "triton_url": "$TRACKER_TRITON_URL"}}'
         - --native
         command:
         - jina

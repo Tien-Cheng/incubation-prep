@@ -4,11 +4,11 @@ from typing import Dict, List
 
 import numpy as np
 from docarray import Document, DocumentArray
+from simpletimer import StopwatchKafka
 from yolov5 import YOLOv5
 from yolov5.models.common import Detections
 
 from jina import Executor, requests
-from simpletimer import StopwatchKafka
 
 
 class YOLODetector(Executor):
@@ -43,12 +43,9 @@ class YOLODetector(Executor):
             traversed_docs = docs
             frames: List[np.ndarray] = list(traversed_docs.tensors)
 
-            start = perf_counter()
             # Either call Triton or run inference locally
             # Assume RGB image
             results: Detections = self.model.predict(frames, size=self.image_size)
-            end = perf_counter()
-            self.logger.info(f"Time taken to predict frame: {end - start}")
             for doc, dets in zip(traversed_docs, results.pred):
                 # Make every det a match Document
                 doc.matches = DocumentArray(

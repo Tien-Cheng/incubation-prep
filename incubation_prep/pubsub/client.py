@@ -1,14 +1,13 @@
-from os import getenv
-from itertools import count
-from time import perf_counter, sleep
 import datetime
+from itertools import count
+from os import getenv
+from time import perf_counter, sleep
 
 import click
 import cv2
 import numpy as np
-
-from docarray import DocumentArray, Document
 from confluent_kafka import Producer
+from docarray import Document, DocumentArray
 
 _loop = None
 

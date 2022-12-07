@@ -30,7 +30,7 @@ pyzmq = "^24.0.1"
 imagezmq = "^1.1.1"
 faust-streaming = "^0.10.0"
 gdown = "^4.5.4"
-simpletimer-kafka = "0.1.1"
+simpletimer-kafka = "0.1.8"
 confluent-kafka = "^1.9.2"
 
 

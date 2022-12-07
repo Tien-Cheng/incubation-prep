@@ -8,20 +8,20 @@ executors:
     uses: docker://jina-yolov5:1.0
     replicas: 3
     uses_with:
-      weights_or_url: grpc://172.20.0.4:8001  # TODO: Retry
+      weights_or_url: ${{ ENV.YOLO_WEIGHTS }}
       device: "0"
       image_size: 640
   - name: DeepSORT
     uses: docker://jina-tracker:1.0
     uses_with:
       embedder_kwargs:
-        embedder: triton
-        embedder_model_name: mobilenet
-        embedder_model_version: "1"
-        triton_url: grpc://172.20.0.4:8001 # TODO: Retry
+        embedder: ${{ ENV.TRACKER_EMBEDDER }}
+        embedder_model_name: ${{ ENV.TRACKER_EMBEDDER_MODEL_NAME }}
+        embedder_model_version: ${{ ENV.TRACKER_EMBEDDER_MODEL_VERSION }}
+        triton_url: ${{ ENV.TRACKER_TRITON_URL }}
   - name: Output
     uses: docker://jina-stream-output:1.0
     uses_with:
-      address: 127.0.0.1
-      port: 5555
-      zmq: True
+      address: ${{ ENV.OUTPUT_ADDRESS }}
+      port: ${{ ENV.OUTPUT_PORT }}
+      zmq: ${{ ENV.OUTPUT_USE_ZMQ }}

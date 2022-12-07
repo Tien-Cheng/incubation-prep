@@ -4,9 +4,9 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
+from simpletimer import StopwatchKafka
 
 from jina import Document, DocumentArray, Executor, requests
-from simpletimer import StopwatchKafka
 
 from .embedder import DeepSORTEmbedder
 
@@ -28,11 +28,12 @@ class ObjectTracker(Executor):
             metadata={"type": "processing_time", "executor": executor_name},
             kafka_parition=-1,
         )
+
     @requests
     def track(self, docs: DocumentArray, **kwargs):
-        with self.timer:
-            all_dets = docs.map(self._get_dets)
-            for frame, dets in zip(docs, all_dets):
+        all_dets = docs.map(self._get_dets)
+        for frame, dets in zip(docs, all_dets):
+            with self.timer:
                 if not frame.matches:
                     continue
                 output_stream: str = frame.tags["output_stream"]

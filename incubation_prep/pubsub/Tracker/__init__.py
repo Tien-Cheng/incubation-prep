@@ -110,4 +110,3 @@ class StreamOutput(Component):
             except:
                 pass
         return docs
-

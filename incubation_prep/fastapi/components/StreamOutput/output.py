@@ -1,7 +1,7 @@
 from io import BytesIO
 from json import loads
-from typing import Dict, List, Optional, Tuple, Union
 from os import getenv
+from typing import Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -88,7 +88,9 @@ class StreamOutput:
             self.create_stream(stream)
 
         if isinstance(frames[0], bytes):
-            frames = [np.array(Image.open(BytesIO(image) ))[..., ::-1] for image in frames]
+            frames = [
+                np.array(Image.open(BytesIO(image)))[..., ::-1] for image in frames
+            ]
 
         if not dets_per_image:
             dets_per_image = [None] * len(frames)
@@ -132,10 +134,11 @@ class StreamOutput:
             except:
                 pass
 
+
 output = StreamOutput(
     address=getenv("ADDRESS", "127.0.0.1"),
     port=getenv("STREAM_PORT", "5555"),
-    zmq=getenv("USE_ZMQ", True)
+    zmq=getenv("USE_ZMQ", True),
 )
 app = FastAPI()
 app.include_router(output.api)

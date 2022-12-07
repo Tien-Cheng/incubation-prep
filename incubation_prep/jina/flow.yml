@@ -13,11 +13,11 @@ executors:
       image_size: 640
   - name: DeepSORT
     uses: executors/ObjectTracker/config.yml
-  - name: Output
-    uses: executors/StreamOutput/config.yml
-    uses_with:
-      address: 127.0.0.1
-      port: 5555
-      zmq: True
   # - name: Output
   #   uses: executors/StreamOutput/config.yml
+  #   uses_with:
+  #     address: 127.0.0.1
+  #     port: 5555
+  #     zmq: True
+  - name: Output
+    uses: executors/StreamOutput/config.yml

@@ -12,6 +12,9 @@ RUN pip install --default-timeout=1000 --compile -r requirements.txt
 RUN git clone https://github.com/Tien-Cheng/yolov5-pip.git
 RUN pip install yolov5-pip/
 
+ENV EXECUTOR_NAME="detector"
+ENV KAFKA_ADDRESS="127.0.0.1:9092"
+ENV KAFKA_METRICS_TOPIC="metrics"
 
 COPY . /workdir/
 WORKDIR /workdir

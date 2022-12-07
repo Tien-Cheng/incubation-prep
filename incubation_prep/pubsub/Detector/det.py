@@ -2,11 +2,10 @@ from os import getenv
 from typing import Dict, List
 
 import numpy as np
+from component import Component
 from docarray import Document, DocumentArray
 from yolov5 import YOLOv5
 from yolov5.models.common import Detections
-
-from component import Component
 
 
 class YOLODetector(Component):
@@ -27,28 +26,26 @@ class YOLODetector(Component):
     def __call__(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # NOTE: model currently does not support batch inference
         # list only converts first dim to list, not recursively like tolist
-        with self.timer:
-            traversed_docs = docs
-            frames: List[np.ndarray] = list(traversed_docs.tensors)
-            # Either call Triton or run inference locally
-            # assumption: image sent is RGB
-            results: Detections = self.model.predict(frames, size=self.image_size)
-            for doc, dets in zip(traversed_docs, results.pred):
-                # Make every det a match Document
-                self.logger.info(dets)
-                doc.matches = DocumentArray(
-                    [
-                        Document(
-                            tags={
-                                "bbox": det[:4].tolist(),  # ltrb format
-                                "class_name": int(det[5].item()),
-                                "confidence": det[4].item(),
-                            }
-                        )
-                        for det in dets
-                        if det.size()[0] != 0
-                    ]
-                )
+        traversed_docs = docs
+        frames: List[np.ndarray] = list(traversed_docs.tensors)
+        # Either call Triton or run inference locally
+        # assumption: image sent is RGB
+        results: Detections = self.model.predict(frames, size=self.image_size)
+        for doc, dets in zip(traversed_docs, results.pred):
+            # Make every det a match Document
+            doc.matches = DocumentArray(
+                [
+                    Document(
+                        tags={
+                            "bbox": det[:4].tolist(),  # ltrb format
+                            "class_name": int(det[5].item()),
+                            "confidence": det[4].item(),
+                        }
+                    )
+                    for det in dets
+                    if det.size()[0] != 0
+                ]
+            )
             return docs
 
 

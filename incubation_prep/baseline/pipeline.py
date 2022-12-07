@@ -1,6 +1,6 @@
 from itertools import count
 from time import perf_counter, sleep
-from typing import Dict
+from typing import Dict, Optional
 
 import click
 import cv2
@@ -13,20 +13,28 @@ from docarray import Document, DocumentArray
 
 
 class Pipeline:
-    components: Dict[str, Component] = {
-        "det": YOLODetector("grpc://172.20.0.4:8001", "0", 640),
-        "tracker": ObjectTracker(
-            {
-                "embedder": "triton",
-                "embedder_model_name": "mobilenet",
-                "embedder_model_version": "1",
-                "triton_url": "grpc://172.20.0.4:8001",
-            }
-        ),
-        "output": StreamOutput(),
-    }
-
-    buffer_dets = DocumentArray()
+    def __init__(
+        self,
+        yolo_weights: str,
+        embedder: str,
+        output_address: str,
+        output_port: str,
+        zmq: bool,
+        embedder_wts: Optional[str] = None,
+    ):
+        self.components: Dict[str, Component] = {
+            "det": YOLODetector(yolo_weights, "0", 640),
+            "tracker": ObjectTracker(
+                {
+                    "embedder": embedder,
+                    "embedder_model_name": "mobilenet",
+                    "embedder_model_version": "1",
+                    "embedder_wts": embedder_wts,
+                    "triton_url": embedder_wts,
+                }
+            ),
+            "output": StreamOutput(address=output_address, port=output_port, zmq=zmq),
+        }
 
     @staticmethod
     def read_video(cap: cv2.VideoCapture, path: str, output_stream: str):
@@ -86,13 +94,28 @@ class Pipeline:
 
 
 @click.command()
-@click.option("-v", "--video")
-@click.option("-o", "--output", default="Test")
+@click.option("-v", "--video", default="../data/SampleVideo_720x480_30mb.mp4")
+@click.option("-o", "--output-stream", default="test1")
+@click.option("--det-wts", default="weights/yolov5s.pt")
+@click.option("--emb-wts", default=None)
+@click.option("--embedder", default="mobilenet")
+@click.option("--output-address", default="rtsp://localhost")
+@click.option("--output-port", default="8554")
+@click.option("--zmq", is_flag=True, default=False)
 @click.option("--infer-fps", default=4)
-@click.option("--no-track", is_flag=True)
-def main(video: str, output: str, infer_fps: int, no_track: bool):
-    pipe = Pipeline()
-    pipe(video, output, infer_fps, no_track)
+def main(
+    video: str,
+    output_stream: str,
+    infer_fps: int,
+    det_wts: str,
+    emb_wts: Optional[str],
+    embedder: str,
+    output_address: str,
+    output_port: str,
+    zmq: bool,
+):
+    pipe = Pipeline(det_wts, embedder, output_address, output_port, zmq, emb_wts)
+    pipe(video, output_stream, infer_fps)
 
 
 if __name__ == "__main__":

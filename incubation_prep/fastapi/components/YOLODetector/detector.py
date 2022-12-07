@@ -40,7 +40,8 @@ def get_detections(frames: List[bytes] = File(), size: int = 640):
                 confidence=det[4].item(),
                 class_name=int(det[5].item()),
             )
-            for det in image_dets if det.size()[0] != 0
+            for det in image_dets
+            if det.size()[0] != 0
         ]
         for image_dets in preds.pred
     ]

@@ -46,11 +46,9 @@ class JinaClient:
 
     @staticmethod
     async def send_async(frame: Document, client: Client):
-        start = perf_counter()
         async for _ in client.post(
             on="/infer", inputs=frame, request_size=1, return_responses=True
         ):
-            print(f"Time: {perf_counter() - start}s")
             continue
 
     @staticmethod

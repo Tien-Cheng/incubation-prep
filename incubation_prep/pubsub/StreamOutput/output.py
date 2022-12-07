@@ -1,14 +1,13 @@
 import json
-from os import getenv
 from datetime import datetime
+from os import getenv
 from typing import Dict, Optional, Union
 
 import cv2
-from vidgear.gears import NetGear, WriteGear
+from component import Component
 from confluent_kafka import SerializingProducer
 from docarray import DocumentArray
-
-from component import Component
+from vidgear.gears import NetGear, WriteGear
 
 
 class StreamOutput(Component):
@@ -83,68 +82,47 @@ class StreamOutput(Component):
         :param docs: _description_
         :type docs: DocumentArray
         """
-        with self.timer:
-            for frame in docs:
-                # Get stream name
-                output_stream: str = frame.tags["output_stream"]
-
-                # Get frame ID
-                frame_id = frame.tags["frame_id"]
-                if output_stream not in self.last_frame:
-                    self.last_frame[output_stream] = frame_id
-                if frame_id < self.last_frame[output_stream]:
-                    self.metric_producer.produce(
-                        self.metrics_topic,
-                        value=json.dumps(
-                            {
-                                "type": "dropped_frame",
-                                "timestamp": datetime.utcnow().isoformat(),
-                                "executor": self.executor_name,
-                            }
-                        ).encode("utf-8"),
+        for frame in docs:
+            # Get stream name
+            output_stream: str = frame.tags["output_stream"]
+            if output_stream not in self.streams:
+                self.create_stream(output_stream)
+            # VidGear will handle threading for us
+            if frame.matches:
+                bboxes, scores, classes, track_ids = frame.matches[
+                    :,
+                    (
+                        "tags__bbox",
+                        "tags__confidence",
+                        "tags__class_name",
+                        "tags__track_id",
+                    ),
+                ]
+                for (bbox, score, class_, id_) in zip(
+                    bboxes, scores, classes, track_ids
+                ):
+                    l, t, r, b = tuple(map(int, bbox))
+                    cv2.rectangle(frame.tensor, (l, t), (r, b), (0, 0, 255), 2)
+                    cv2.putText(
+                        frame.tensor,
+                        f"[ID: {id_}] {class_} ({score * 100:.2f}%)",
+                        (l, t - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (255, 0, 0),
                     )
-                    self.metric_producer.poll(0)
-                    continue
-                else:
-                    self.last_frame[output_stream] = frame_id
-                if output_stream not in self.streams:
-                    self.create_stream(output_stream)
-                # VidGear will handle threading for us
-                if frame.matches:
-                    bboxes, scores, classes, track_ids = frame.matches[
-                        :,
-                        (
-                            "tags__bbox",
-                            "tags__confidence",
-                            "tags__class_name",
-                            "tags__track_id",
-                        ),
-                    ]
-                    for (bbox, score, class_, id_) in zip(
-                        bboxes, scores, classes, track_ids
-                    ):
-                        l, t, r, b = tuple(map(int, bbox))
-                        cv2.rectangle(frame.tensor, (l, t), (r, b), (0, 0, 255), 2)
-                        cv2.putText(
-                            frame.tensor,
-                            f"[ID: {id_}] {class_} ({score * 100:.2f}%)",
-                            (l, t - 8),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (255, 0, 0),
-                        )
 
-                # We assume input is RGB
-                frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
-                frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
-                try:
-                    self.logger.info(f"[{output_stream}] Sending frame")
-                    if self.zmq:
-                        self.streams[output_stream].send(frame.tensor)
-                    else:
-                        self.streams[output_stream].write(frame.tensor)
-                except:
-                    pass
+            # We assume input is RGB
+            frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
+            frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
+            try:
+                self.logger.info(f"[{output_stream}] Sending frame")
+                if self.zmq:
+                    self.streams[output_stream].send(frame.tensor)
+                else:
+                    self.streams[output_stream].write(frame.tensor)
+            except:
+                pass
             return docs
 
 

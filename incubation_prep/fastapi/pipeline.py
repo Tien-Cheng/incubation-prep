@@ -8,8 +8,8 @@ import time
 from itertools import count
 from time import perf_counter
 
-import cv2
 import click
+import cv2
 import numpy as np
 import requests
 from vidgear.gears import VideoGear
@@ -152,7 +152,7 @@ class Pipeline:
             for frame in self.read_video(cap, video_path, output_path):
                 fire_and_forget(frame_pipe(frame, frames % infer_frame_skip == 0))
                 frames += 1
-                time.sleep(1/fps)
+                time.sleep(1 / fps)
         finally:
             end = perf_counter()
             mean_fps = frames / (end - start)

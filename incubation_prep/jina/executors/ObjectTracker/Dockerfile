@@ -8,6 +8,10 @@ RUN python3 -m pip install --no-cache-dir jina${JINA_VERSION:+==${JINA_VERSION}}
 COPY requirements.txt requirements.txt
 RUN pip install --default-timeout=1000 --compile -r requirements.txt
 
+ENV EXECUTOR_NAME="tracker"
+ENV KAFKA_ADDRESS="127.0.0.1:9092"
+ENV KAFKA_METRICS_TOPIC="metrics"
+
 COPY . /workdir/
 WORKDIR /workdir
 

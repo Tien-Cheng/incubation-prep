@@ -2,14 +2,23 @@ import cv2
 from vidgear.gears import NetGear
 
 # define Netgear Client with `receive_mode = True` and default parameter
-client = NetGear(receive_mode=True, address="127.0.0.1", port=5555)
+client = NetGear(
+    receive_mode=True,
+    address="127.0.0.1",
+    port=[5555],
+    logging=True,
+    pattern=1,
+    multiserver_mode=True,
+)
 
 cv2.namedWindow("output_zmq", cv2.WINDOW_NORMAL)
 # loop over
 while True:
 
     # receive frames from network
+    print("1")
     frame = client.recv()
+    print(frame)
 
     # check for received frame if Nonetype
     if frame is None:

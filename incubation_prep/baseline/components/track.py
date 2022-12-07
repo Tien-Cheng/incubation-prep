@@ -3,11 +3,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
-
 from docarray import Document, DocumentArray
 
-from .embedder import DeepSORTEmbedder
 from .component import Component
+from .embedder import DeepSORTEmbedder
 
 
 class ObjectTracker(Component):

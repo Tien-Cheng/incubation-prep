@@ -1,19 +1,18 @@
-import traceback
+import json
 import socket
-
-import numpy as np
-
+import traceback
 from abc import ABC, abstractmethod
+from datetime import datetime
 from enum import Enum
 from logging import Logger
-from typing import Optional
 from os import getenv
+from typing import Dict, Optional
 
-from docarray import DocumentArray, Document
+import numpy as np
+from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
+from docarray import Document, DocumentArray
 from imagezmq import ImageSender
-from confluent_kafka import Producer, Consumer, KafkaError, KafkaException
 from simpletimer import StopwatchKafka
-
 from zmq_subscriber import VideoStreamSubscriber
 
 
@@ -35,6 +34,8 @@ class Component(ABC):
     metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
     executor_name = getenv("EXECUTOR_NAME")
 
+    executor_id = executor_name + datetime.now().isoformat()
+
     # Set up producer for Kafka metrics
     timer = StopwatchKafka(
         bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
@@ -42,6 +43,9 @@ class Component(ABC):
         metadata={"type": "processing_time", "executor": executor_name},
         kafka_parition=-1,
     )
+
+    last_frame: Dict[str, str] = {}
+    metric_producer = Producer(conf)
 
     def __init__(self, msg_broker: Optional[Broker] = None):
         if msg_broker is None:
@@ -81,7 +85,7 @@ class Component(ABC):
     ) -> DocumentArray:
         return data
 
-    def serve(self, send_tensors: bool = True):
+    def serve(self, send_tensors: bool = True, filter_stream: Optional[str] = None):
         """
         This is a wrapper around __call__ that will do the following:
 
@@ -94,11 +98,13 @@ class Component(ABC):
         The choice of processor will depend on an environment variable
         """
         if self.broker == Broker.zmq:
-            self._process_zmq(send_tensors)
+            self._process_zmq(send_tensors, filter_stream)
         elif self.broker == Broker.kafka:
-            self._process_kafka(send_tensors)
+            self._process_kafka(send_tensors, filter_stream)
 
-    def _process_zmq(self, send_tensors):
+    def _process_zmq(
+        self, send_tensors: bool = True, filter_stream: Optional[str] = None
+    ):
         try:
             while True:
                 # Get frames
@@ -108,12 +114,13 @@ class Component(ABC):
                 # Convert metadata to docarray
                 assert isinstance(data, bytes), "Is byte"
                 frame_docs = DocumentArray.from_bytes(data)
-                if not send_tensors:
-                    if frame_docs[..., "uri"] is not None:
-                        frame_docs[...].apply(self._load_uri_to_image_tensor)
-                result = self.__call__(frame_docs)
-                if not send_tensors:
-                    frame_docs[...].tensors = None
+                if filter_stream is not None:
+                    frame_docs = frame_docs.find(
+                        {"tags__output_stream": {"$eq": filter_stream}}, limit=None
+                    )
+                if len(frame_docs) == 0:
+                    continue  # skip frames if pod not meant to receive them
+                result = self._call_main(frame_docs, send_tensors)
                 # Process Results
                 if self.producer:
                     self.producer.zmq_socket.send(result.to_bytes())
@@ -126,7 +133,9 @@ class Component(ABC):
         finally:
             self.consumer.close()
 
-    def _process_kafka(self, send_tensors):
+    def _process_kafka(
+        self, send_tensors: bool = True, filter_stream: Optional[str] = None
+    ):
         try:
             if not self.consume_topic:
                 raise ValueError("No consumer topic set!")
@@ -143,12 +152,13 @@ class Component(ABC):
                         raise KafkaException(data.error())
                 # Convert metadata to docarray
                 frame_docs = DocumentArray.from_bytes(data.value())
-                if not send_tensors:
-                    if frame_docs[..., "uri"] is not None:
-                        frame_docs[...].apply(self._load_uri_to_image_tensor)
-                result = self.__call__(frame_docs)
-                if not send_tensors:
-                    frame_docs[...].tensors = None
+                if filter_stream is not None:
+                    frame_docs = frame_docs.find(
+                        {"tags__output_stream": {"$eq": filter_stream}}, limit=None
+                    )
+                if len(frame_docs) == 0:
+                    continue  # skip frames if pod not meant to receive them
+                result = self._call_main(frame_docs, send_tensors)
                 # Process Results
                 if self.produce_topic:
                     self.producer.produce(self.produce_topic, value=result.to_bytes())
@@ -161,6 +171,53 @@ class Component(ABC):
             traceback.print_exc()
         finally:
             self.consumer.close()
+
+    def _call_main(
+        self, docs: DocumentArray, send_tensors: bool = True
+    ) -> DocumentArray:
+        if not send_tensors:
+            if docs[..., "uri"] is not None:
+                docs[...].apply(self._load_uri_to_image_tensor)
+
+        # NOTE: Assume only 1 doc inside docarray
+        # Check for dropped frames
+        frame_id = docs[0].tags["frame_id"]
+        output_stream = docs[0].tags["output_stream"]
+        video_source = docs[0].tags["video_path"]
+        if output_stream not in self.last_frame:
+            self.last_frame[output_stream] = frame_id
+        if frame_id < self.last_frame[output_stream]:
+            self.metric_producer.produce(
+                self.metrics_topic,
+                value=json.dumps(
+                    {
+                        "type": "dropped_frame",
+                        "timestamp": datetime.now().isoformat(),
+                        "executor": self.executor_name,
+                        "executor_id": self.executor_id,  # contain time the exec was initialized
+                        "frame_id": frame_id,
+                        "output_stream": output_stream,
+                        "video_source": video_source,
+                    }
+                ).encode("utf-8"),
+            )
+            self.metric_producer.poll(0)
+            self.logger.warn("Dropped frame}")
+
+        with self.timer(
+            metadata={
+                "frame_id": frame_id,
+                "video_path": video_source,
+                "output_stream": output_stream,
+                "timestamp": datetime.now().isoformat(),
+                "executor": self.executor_name,
+                "executor_id": self.executor_id,
+            }
+        ):
+            docs = self.__call__(docs)
+        if not send_tensors:
+            docs[...].tensors = None
+        return docs
 
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:

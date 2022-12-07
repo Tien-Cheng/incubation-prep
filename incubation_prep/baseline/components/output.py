@@ -99,7 +99,7 @@ class StreamOutput(Component):
                         (l, t - 8),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1,
-                        (255, 0, 0),  
+                        (255, 0, 0),
                     )
             frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
             frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)

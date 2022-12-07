@@ -1,11 +1,9 @@
-from os import getenv
 from datetime import datetime
+from os import getenv
 
 import cv2
-
-from docarray import DocumentArray
-
 from component import Component
+from docarray import DocumentArray
 
 
 class SaveStream(Component):
@@ -23,40 +21,39 @@ class SaveStream(Component):
         :param docs: _description_
         :type docs: DocumentArray
         """
-        with self.timer:
-            for frame in docs:
-                # Get stream name
-                if frame.matches:
-                    bboxes, scores, classes, track_ids = frame.matches[
-                        :,
-                        (
-                            "tags__bbox",
-                            "tags__confidence",
-                            "tags__class_name",
-                            "tags__track_id",
-                        ),
-                    ]
-                    for (bbox, score, class_, id_) in zip(
-                        bboxes, scores, classes, track_ids
-                    ):
-                        l, t, r, b = tuple(map(int, bbox))
-                        cv2.rectangle(frame.tensor, (l, t), (r, b), (0, 0, 255), 2)
-                        cv2.putText(
-                            frame.tensor,
-                            f"[ID: {id_}] {class_} ({score * 100:.2f}%)",
-                            (l, t - 8),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (255, 0, 0),  
-                        )
-                frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
-                # Save
-                filename = f"video-{frame.tags['output_stream']}-frame-{frame.tags['frame_id']}-{str(datetime.now())}.jpg"
-                path = f"{self.path}/{filename}"
-                # We assume input is RGB
-                frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
-                cv2.imwrite(str(path), frame.tensor)
-            return docs
+        for frame in docs:
+            # Get stream name
+            if frame.matches:
+                bboxes, scores, classes, track_ids = frame.matches[
+                    :,
+                    (
+                        "tags__bbox",
+                        "tags__confidence",
+                        "tags__class_name",
+                        "tags__track_id",
+                    ),
+                ]
+                for (bbox, score, class_, id_) in zip(
+                    bboxes, scores, classes, track_ids
+                ):
+                    l, t, r, b = tuple(map(int, bbox))
+                    cv2.rectangle(frame.tensor, (l, t), (r, b), (0, 0, 255), 2)
+                    cv2.putText(
+                        frame.tensor,
+                        f"[ID: {id_}] {class_} ({score * 100:.2f}%)",
+                        (l, t - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (255, 0, 0),
+                    )
+            frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
+            # Save
+            filename = f"video-{frame.tags['output_stream']}-frame-{frame.tags['frame_id']}-{str(datetime.now())}.jpg"
+            path = f"{self.path}/{filename}"
+            # We assume input is RGB
+            frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(str(path), frame.tensor)
+        return docs
 
 
 if __name__ == "__main__":

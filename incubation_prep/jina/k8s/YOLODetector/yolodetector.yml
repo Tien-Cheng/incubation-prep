@@ -71,8 +71,7 @@ spec:
         - --uses-metas
         - '{}'
         - --uses-with
-        - '{"weights_or_url": "grpc://172.20.0.4:8001", "device": 0, "image_size":
-          640}'
+        - '{"weights_or_url": "$YOLO_WEIGHTS", "device": 0, "image_size": 640}'
         - --native
         command:
         - jina
