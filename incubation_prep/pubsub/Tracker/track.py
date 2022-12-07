@@ -1,12 +1,14 @@
+import json
 from os import getenv
 from typing import Dict, List, Optional, Tuple, Type, Union
+from datetime import datetime
 
 import numpy as np
 from component import Component
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from docarray import Document, DocumentArray
-from embedder import DeepSORTEmbedder
+from embedder import DeepSORTEmbedder, Embedder
 
 
 class ObjectTracker(Component):
@@ -31,6 +33,23 @@ class ObjectTracker(Component):
             image = frame.tensor
             if not frame.matches.embeddings:
                 embeds = self.embedder(image, dets)
+                if self.embedder.embedder != Embedder.triton:
+                    no_inferences = len(dets)
+                    metric = {
+                        "type": "non_triton_inference",
+                        "timestamp": datetime.now().isoformat(),
+                        "executor": self.executor_name,
+                        "executor_id": self.executor_id,
+                        "output_stream": frame.tags["output_stream"],
+                        "video_source": frame.tags["video_path"],
+                        "frame_id": frame.tags["frame_id"],
+                        "value": no_inferences,
+                    }
+                    # Produce metric
+                    self.metric_producer.produce(
+                        self.metrics_topic, value=json.dumps(metric).encode("utf-8")
+                    )
+                    self.metric_producer.poll(0)
             else:
                 embeds = frame.matches.embeddings
             tracks = self.trackers[output_stream].update_tracks(dets, embeds=embeds)
