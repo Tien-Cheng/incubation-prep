@@ -50,7 +50,7 @@ class SaveStream(Component):
                     )
             frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
             # Save
-            filename = f"video-{frame.tags['output_stream']}-frame-{frame.tags['frame_id']}-{str(datetime.now())}.jpg"
+            filename = f"video-{frame.tags['output_stream']}-frame-{frame.tags['frame_id']}-{datetime.now().isoformat()}.jpg"
             path = f"{self.path}/{filename}"
             # We assume input is RGB
             frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
