@@ -20,7 +20,7 @@ spec:
             claimName: data-volume
       containers:
       - name: client
-        image: test-client:1.0
+        image: tiencheng/test-client:1.0
         ports:
         - containerPort: 80
         resources:
