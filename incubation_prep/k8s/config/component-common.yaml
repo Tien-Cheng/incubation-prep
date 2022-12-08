@@ -1,0 +1,20 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: component-common
+data:
+  # PVC Mount Location
+  NFS_MOUNT: /data
+  # Add key-value pairs for your configuration data here
+  # Object Detection Model
+  IMAGE_SIZE: "640"
+
+  # RTSP Streaming
+  OUTPUT_ADDRESS: rtsp://<TODO>
+  OUTPUT_PORT: "8554"
+  OUTPUT_WIDTH: "1280"
+  OUTPUT_HEIGHT: "720"
+
+  # Saving Frames
+  SAVE_DIR: /data/saved_frames

@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
+      containers:
+      - name: client
+        image: test-client:1.0
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            # Need GPU as this client directly runs baseline code
+            # Limit the application to using one GPU
+            cpu: "4.0"
+            memory: "8Gi"
+            nvidia.com/gpu: 1
+          requests:
+            # Request 1 gpu
+            cpu: "4.0"
+            memory: "8Gi"
+            nvidia.com/gpu: 1
+        envFrom:
+          - configMapRef:
+              name: kafka-common
+          - configMapRef:
+              name: component-common
+          - configMapRef:
+              name: non-triton
+        volumeMounts:
+        - name: data-volume
+          mountPath: /data

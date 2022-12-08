@@ -1,0 +1,19 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: using-triton
+data:
+  # Add key-value pairs for your configuration data here
+  # Object Detection Model
+  YOLO_WEIGHTS: grpc://<TODO>
+  YOLO_DEVICE: "0"
+  # Object Tracking
+  TRACKER_EMBEDDER: triton
+  TRACKER_TRITON_URL: grpc://<TODO>
+  TRACKER_EMBEDDER_MODEL_VERSION: "1"
+
+
+
+  
+  

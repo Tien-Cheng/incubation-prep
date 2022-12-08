@@ -14,16 +14,20 @@ spec:
       labels:
         app: pubsub-save-frames-1
     spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
       containers:
       - name: pubsub-save-frames-1
         image: pubsub-save-frames:1.0
         resources:
           limits:
-            cpu: "1.0"
-            memory: "8Gi"
+            cpu: "2.0"
+            memory: "2Gi"
           requests:
             cpu: "1.0"
-            memory: "8Mi"
+            memory: "1Gi"
         # Add the following env section
         env:
         - name: BROKER
@@ -32,8 +36,13 @@ spec:
           value: out
         - name: KAFKA_CONSUME_TOPIC
           value: tracks
-        - name: SAVE_DIR
-          value: /data/processed/
         envFrom:
           - configMapRef:
               name: kafka-common
+          - configMapRef:
+              name: component-common
+          - configMapRef:
+              name: non-triton
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume

@@ -14,16 +14,20 @@ spec:
       labels:
         app: pubsub-tracker-1
     spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
       containers:
       - name: pubsub-tracker-1
         image: pubsub-tracker:1.0
         resources:
           limits:
-            cpu: "1.0"
+            cpu: "4.0"
             memory: "8Gi"
           requests:
-            cpu: "1.0"
-            memory: "8Mi"
+            cpu: "2.0"
+            memory: "4Gi"
         # Add the following env section
         env:
         - name: BROKER
@@ -34,16 +38,13 @@ spec:
           value: dets
         - name: KAFKA_PRODUCE_TOPIC
           value: tracks
-        - name: TRACKER_EMBEDDER
-          value: mobilenet # mobilenet or triton
-        - name: TRACKER_EMBEDDER_MODEL_NAME
-          value: mobilenet
-        # - name: TRACKER_EMBEDDER_MODEL_WTS
-        #   value:
-        - name: TRACKER_EMBEDDER_MODEL_VERSION
-          value: "1"
-        - name: TRACKER_TRITON_URL
-          value: <TODO>
         envFrom:
           - configMapRef:
               name: kafka-common
+          - configMapRef:
+              name: component-common
+          - configMapRef:
+              name: non-triton
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume

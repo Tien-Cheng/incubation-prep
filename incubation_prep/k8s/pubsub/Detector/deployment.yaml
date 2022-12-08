@@ -14,16 +14,20 @@ spec:
       labels:
         app: pubsub-detector-1
     spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
       containers:
       - name: pubsub-detector-1
         image: pubsub-detector:1.0
         resources:
           limits:
-            cpu: "1.0"
+            cpu: "4.0"
             memory: "8Gi"
           requests:
             cpu: "1.0"
-            memory: "8Mi"
+            memory: "4Gi"
         # Add the following env section
         env:
         - name: BROKER
@@ -34,8 +38,13 @@ spec:
           value: frames
         - name: KAFKA_PRODUCE_TOPIC
           value: dets
-        - name: YOLO_WEIGHTS
-          value: yolov5s.pt
         envFrom:
           - configMapRef:
               name: kafka-common
+          - configMapRef:
+              name: component-common
+          - configMapRef:
+              name: non-triton
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume
