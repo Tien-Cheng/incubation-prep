@@ -182,6 +182,7 @@ class Client:
 @click.option("--send-image/--no-send-image", default=True)
 @click.option("--nfs", is_flag=True)
 @click.option("--redis", is_flag=True)
+@click.option("--load-baseline", is_flag=True)
 def main(
     broker: BrokerType,
     video: str,
@@ -190,6 +191,7 @@ def main(
     send_image: bool,
     nfs: bool,
     redis: bool,
+    load_baseline: bool
 ):
     if redis and nfs:
         raise ValueError("Cannot have both redis and nfs enabled at same time")
@@ -218,7 +220,7 @@ def main(
             "output_port": getenv("OUTPUT_PORT", 8554),
             "zmq": bool(getenv("OUTPUT_USE_ZMQ", False)),
             "output_path": getenv("", "./final"),
-        },
+        } if load_baseline else None,
         producer_topic=getenv("KAFKA_PRODUCE_TOPIC", "frames"),
     )
     client.infer(broker, video, stream_name, output_path, send_image, redis, nfs)
