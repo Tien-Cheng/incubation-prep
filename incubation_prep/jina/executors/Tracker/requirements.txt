@@ -2,3 +2,5 @@
 opencv-python==4.5.5.64
 deep-sort-realtime
 Pillow
+confluent-kafka
+simpletimer-kafka==0.1.9

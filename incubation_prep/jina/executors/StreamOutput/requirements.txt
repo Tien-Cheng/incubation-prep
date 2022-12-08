@@ -1,3 +1,5 @@
 opencv-python==4.5.5.64
 pyzmq
 vidgear[core]
+confluent-kafka
+simpletimer-kafka==0.1.9
