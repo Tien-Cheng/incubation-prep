@@ -10,7 +10,7 @@ from simpletimer import StopwatchKafka
 from confluent_kafka import Producer
 from jina import Document, DocumentArray, Executor, requests
 
-from .embedder import DeepSORTEmbedder
+from .embedder import DeepSORTEmbedder, Embedder
 
 
 class ObjectTracker(Executor):
@@ -22,7 +22,6 @@ class ObjectTracker(Executor):
             embedder_kwargs = {}
         self.embedder = DeepSORTEmbedder(**embedder_kwargs)
         self.trackers: Dict[str, DeepSort] = {}
-        
 
         # Common Logic
         self.metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
@@ -97,7 +96,34 @@ class ObjectTracker(Executor):
                 # embedding of each cropped det
                 image = frame.tensor
                 if not frame.matches.embeddings:
-                    embeds = self.embedder(image, dets)
+                    if self.embedder.embedder != Embedder.triton:
+                        with self.timer(
+                            metadata={
+                                "event": "non_triton_model_processing",
+                                "timestamp": datetime.now().isoformat(),
+                                "executor": self.executor_name,
+                                "executor_id": self.executor_id,
+                            }
+                        ):
+                            embeds = self.embedder(image, dets)
+                        no_inferences = len(dets)
+                        metric = {
+                            "type": "non_triton_inference",
+                            "timestamp": datetime.now().isoformat(),
+                            "executor": self.executor_name,
+                            "executor_id": self.executor_id,
+                            "output_stream": frame.tags["output_stream"],
+                            "video_source": frame.tags["video_path"],
+                            "frame_id": frame.tags["frame_id"],
+                            "value": no_inferences,
+                        }
+                        # Produce metric
+                        self.metric_producer.produce(
+                            self.metrics_topic, value=json.dumps(metric).encode("utf-8")
+                        )
+                        self.metric_producer.poll(0)
+                    else:
+                        embeds = self.embedder(image, dets)
                 else:
                     embeds = frame.matches.embeddings
                 tracks = self.trackers[output_stream].update_tracks(dets, embeds=embeds)

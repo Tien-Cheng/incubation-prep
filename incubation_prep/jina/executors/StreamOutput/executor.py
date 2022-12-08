@@ -168,7 +168,6 @@ class StreamOutput(Executor):
                         )
                 # We assume input is RGB
                 frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
-                self.logger.error(frame.tensor.shape)
                 frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
                 try:
                     if self.zmq:
