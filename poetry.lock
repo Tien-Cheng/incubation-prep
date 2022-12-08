@@ -2913,7 +2913,7 @@ numpy = "*"
 
 [[package]]
 name = "simpletimer-kafka"
-version = "0.1.6"
+version = "0.1.9"
 description = ""
 category = "main"
 optional = false
@@ -3456,7 +3456,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "80833060e25b14932b5b0522b4d2270c27aae6499844554bc938a7b6cab6f35b"
+content-hash = "cc2fa7f93b73fbfba4b6fff41c45492fcbdd5803f0711bab969665d76dbff0e7"
 
 [metadata.files]
 absl-py = [
@@ -5716,8 +5716,8 @@ simplejpeg = [
     {file = "simplejpeg-1.6.5.tar.gz", hash = "sha256:788dd8819bd11b7f52d958f3ab9259098cf895bd4f7e411dd9dd2172d5c41139"},
 ]
 simpletimer-kafka = [
-    {file = "simpletimer-kafka-0.1.6.tar.gz", hash = "sha256:ec92eef150c15338196822ee1383c8d00dec28cc8f5784cba1175519ef3dee68"},
-    {file = "simpletimer_kafka-0.1.6-py3-none-any.whl", hash = "sha256:e4c5be1fde8ea3d12ee75d2c009aedb44c227ea7fe7025f476d9492c1bb15840"},
+    {file = "simpletimer-kafka-0.1.9.tar.gz", hash = "sha256:5a187aee59b47485f43900c01938b8eee863bd3ae87f55daedbeaf160b753d3b"},
+    {file = "simpletimer_kafka-0.1.9-py3-none-any.whl", hash = "sha256:d39beacc78352324bcc0b4fa9153d8900fe7d1c489d38cce24806aad6ddcf80e"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},

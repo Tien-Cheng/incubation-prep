@@ -48,7 +48,7 @@ class Client:
         self.kafka_client = None
         self.zmq_client = None
         if jina_config is not None:
-            self.jina_client = JinaClient(**jina_config)
+            self.jina_client = JinaClient(asyncio=True, **jina_config)
             self.jina_config = jina_config
         if kafka_config is not None:
             self.kafka_client = Producer(kafka_config)
@@ -76,6 +76,8 @@ class Client:
             if np.isinf(fps):
                 fps = 25
             filename = Path(video_path).stem
+            if output_path is not None:
+                Path(output_path).mkdir(parents=True, exist_ok=True)
             for frame_count in count():
                 success, frame = cap.read()
                 frame_id = f"vid-{filename}-{output_stream}-frame-{frame_count}"
@@ -95,7 +97,7 @@ class Client:
                     if nfs:
                         path = f"{output_path}/{frame_id}.jpg"
                         cv2.imwrite(path, frame)
-                        doc.uri = path
+                        doc.uri = str(Path(path).resolve())
                     elif redis:
                         raise NotImplementedError
                 else:

@@ -1,3 +1,4 @@
+from pathlib import Path
 from datetime import datetime
 from os import getenv
 
@@ -14,6 +15,7 @@ class SaveStream(Component):
         self.width = width
         self.height = height
         self.path = path
+        Path(path).mkdir(parents=True, exist_ok=True)
 
     def __call__(self, docs: DocumentArray, **kwargs):
         """Read frames and save them in NFS or Redis
@@ -52,7 +54,9 @@ class SaveStream(Component):
             path = f"{self.path}/{filename}"
             # We assume input is RGB
             frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(str(path), frame.tensor)
+            success = cv2.imwrite(str(path), frame.tensor)
+            if not success:
+                self.logger.error(f"Failed to save frame to: {path}")
         return docs
 
 

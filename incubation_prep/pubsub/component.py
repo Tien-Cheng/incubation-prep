@@ -33,7 +33,6 @@ class Component(ABC):
     }
     metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
     executor_name = getenv("EXECUTOR_NAME")
-
     executor_id = executor_name + "-" + datetime.now().isoformat()
 
     # Set up producer for Kafka metrics
@@ -223,6 +222,7 @@ class Component(ABC):
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
             doc = doc.load_uri_to_image_tensor()
+            # NOTE: Testing shows not necessary and actually breaks stuff
             # Convert channels from NHWC to NCHW
-            doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
+            # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc

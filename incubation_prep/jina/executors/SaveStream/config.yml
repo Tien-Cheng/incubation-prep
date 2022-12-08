@@ -1,0 +1,8 @@
+jtype: SaveStream
+py_modules:
+  - executor.py
+metas:
+  name: SaveStream
+  description: 
+  url: 
+  keywords: []
