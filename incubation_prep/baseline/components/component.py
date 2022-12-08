@@ -18,7 +18,6 @@ class Component(ABC):
 
         # TODO: Check for dropped frames
 
-
         # TODO: with self.timer:
         # TODO: Main call function (give a different name)
 

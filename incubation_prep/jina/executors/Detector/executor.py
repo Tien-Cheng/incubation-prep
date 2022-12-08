@@ -1,5 +1,4 @@
 import json
-
 from datetime import datetime
 from os import getenv
 from typing import Dict, List
@@ -111,7 +110,9 @@ class YOLODetector(Executor):
                         "executor_id": self.executor_id,
                     }
                 ):
-                    results: Detections = self.model.predict(frames, size=self.image_size)
+                    results: Detections = self.model.predict(
+                        frames, size=self.image_size
+                    )
                 # Track detections by model
                 base_metric = {
                     "type": "non_triton_inference",
@@ -150,6 +151,7 @@ class YOLODetector(Executor):
             if not send_tensors:
                 docs[...].tensors = None
             return docs
+
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
@@ -157,4 +159,3 @@ class YOLODetector(Executor):
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
-

@@ -1,21 +1,21 @@
 import asyncio
 import gc  # Prevent memory leak through manual gc
 import threading
-
-from os import getenv
-from itertools import count
-from time import sleep
-from typing import Optional, Dict
-from pathlib import Path
 from enum import Enum
+from itertools import count
+from os import getenv
+from pathlib import Path
+from time import sleep
+from typing import Dict, Optional
 
-import cv2
 import click
+import cv2
 import numpy as np
-import zmq, zmq.asyncio
-
+import zmq
+import zmq.asyncio
 from confluent_kafka import Producer
 from docarray import Document, DocumentArray
+
 from jina import Client as JinaClient
 
 _loop = None
@@ -198,6 +198,7 @@ def main(
         producer_topic=getenv("KAFKA_PRODUCE_TOPIC", "frames"),
     )
     client.infer(broker, video, stream_name, output_path, send_image, redis, nfs)
+
 
 if __name__ == "__main__":
     main()

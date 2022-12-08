@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
-from pathlib import Path
 from os import getenv
+from pathlib import Path
 from typing import Dict
 
 import cv2
@@ -9,7 +9,7 @@ import numpy as np
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 
-from jina import DocumentArray, Executor, requests, Document
+from jina import Document, DocumentArray, Executor, requests
 
 
 class SaveStream(Executor):
@@ -136,4 +136,3 @@ class SaveStream(Executor):
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
-

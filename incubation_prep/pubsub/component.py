@@ -8,7 +8,6 @@ from logging import Logger
 from os import getenv
 from typing import Dict, Optional
 
-import numpy as np
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 from docarray import Document, DocumentArray
 from imagezmq import ImageSender
@@ -205,7 +204,7 @@ class Component(ABC):
 
         with self.timer(
             metadata={
-                "event" : "overall",
+                "event": "overall",
                 "frame_id": frame_id,
                 "video_path": video_source,
                 "output_stream": output_stream,

@@ -9,7 +9,7 @@ from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 from vidgear.gears import NetGear, WriteGear
 
-from jina import DocumentArray, Executor, requests, Document
+from jina import Document, DocumentArray, Executor, requests
 
 
 class StreamOutput(Executor):
@@ -189,5 +189,3 @@ class StreamOutput(Executor):
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
-
-

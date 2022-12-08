@@ -1,6 +1,6 @@
-from pathlib import Path
 from datetime import datetime
 from os import getenv
+from pathlib import Path
 
 import cv2
 from component import Component

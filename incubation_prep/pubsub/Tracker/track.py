@@ -1,7 +1,7 @@
 import json
+from datetime import datetime
 from os import getenv
 from typing import Dict, List, Optional, Tuple, Type, Union
-from datetime import datetime
 
 import numpy as np
 from component import Component

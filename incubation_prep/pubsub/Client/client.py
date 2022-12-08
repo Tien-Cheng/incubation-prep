@@ -10,6 +10,7 @@ from docarray import Document, DocumentArray
 
 _loop = None
 
+
 class KafkaClient:
     def __init__(
         self, bootstrap_servers: str = "localhost:9092", producer_topic: str = "frames"
@@ -42,7 +43,7 @@ class KafkaClient:
                         "output_stream": "test2",
                     },
                 )
-                sleep(1/fps)
+                sleep(1 / fps)
         finally:
             cap.release()
         return

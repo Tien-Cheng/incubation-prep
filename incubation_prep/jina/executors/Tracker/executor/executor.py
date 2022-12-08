@@ -1,13 +1,14 @@
 import json
+from datetime import datetime
 from os import getenv
 from typing import Dict, List, Optional, Tuple, Union
-from datetime import datetime
 
 import numpy as np
+from confluent_kafka import Producer
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from simpletimer import StopwatchKafka
-from confluent_kafka import Producer
+
 from jina import Document, DocumentArray, Executor, requests
 
 from .embedder import DeepSORTEmbedder, Embedder
