@@ -32,8 +32,18 @@ class YOLODetector(Component):
         frames: List[np.ndarray] = list(docs.tensors)
         # Either call Triton or run inference locally
         # assumption: image sent is RGB
-        results: Detections = self.model.predict(frames, size=self.image_size)
-        if not self.is_triton:
+        if self.is_triton:
+            results: Detections = self.model.predict(frames, size=self.image_size)
+        else:
+            with self.timer(
+                metadata={
+                    "event": "non_triton_model_processing",
+                    "timestamp": datetime.now().isoformat(),
+                    "executor": self.executor_name,
+                    "executor_id": self.executor_id,
+                }
+            ):
+                results: Detections = self.model.predict(frames, size=self.image_size)
             # Track detections by model
             base_metric = {
                 "type": "non_triton_inference",

@@ -205,6 +205,7 @@ class Component(ABC):
 
         with self.timer(
             metadata={
+                "event" : "overall",
                 "frame_id": frame_id,
                 "video_path": video_source,
                 "output_stream": output_stream,

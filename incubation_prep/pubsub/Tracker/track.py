@@ -32,8 +32,16 @@ class ObjectTracker(Component):
             # embedding of each cropped det
             image = frame.tensor
             if not frame.matches.embeddings:
-                embeds = self.embedder(image, dets)
                 if self.embedder.embedder != Embedder.triton:
+                    with self.timer(
+                        metadata={
+                            "event": "non_triton_model_processing",
+                            "timestamp": datetime.now().isoformat(),
+                            "executor": self.executor_name,
+                            "executor_id": self.executor_id,
+                        }
+                    ):
+                        embeds = self.embedder(image, dets)
                     no_inferences = len(dets)
                     metric = {
                         "type": "non_triton_inference",
@@ -50,6 +58,8 @@ class ObjectTracker(Component):
                         self.metrics_topic, value=json.dumps(metric).encode("utf-8")
                     )
                     self.metric_producer.poll(0)
+                else:
+                    embeds = self.embedder(image, dets)
             else:
                 embeds = frame.matches.embeddings
             tracks = self.trackers[output_stream].update_tracks(dets, embeds=embeds)
