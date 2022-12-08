@@ -8,7 +8,6 @@ from logging import Logger
 from os import getenv
 from typing import Dict, Optional
 
-import numpy as np
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 from docarray import Document, DocumentArray
 from imagezmq import ImageSender
@@ -33,7 +32,6 @@ class Component(ABC):
     }
     metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
     executor_name = getenv("EXECUTOR_NAME")
-
     executor_id = executor_name + "-" + datetime.now().isoformat()
 
     # Set up producer for Kafka metrics
@@ -202,10 +200,11 @@ class Component(ABC):
                 ).encode("utf-8"),
             )
             self.metric_producer.poll(0)
-            self.logger.warn("Dropped frame}")
+            self.logger.warn("Dropped frame")
 
         with self.timer(
             metadata={
+                "event": "overall",
                 "frame_id": frame_id,
                 "video_path": video_source,
                 "output_stream": output_stream,
@@ -223,6 +222,7 @@ class Component(ABC):
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
             doc = doc.load_uri_to_image_tensor()
+            # NOTE: Testing shows not necessary and actually breaks stuff
             # Convert channels from NHWC to NCHW
-            doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
+            # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
