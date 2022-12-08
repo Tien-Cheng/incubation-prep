@@ -4,14 +4,13 @@ with:
   prefetch: 5
   protocol: grpc
 executors:
-  - name: YOLODetector
+  - name: Detector
     uses: docker://jina-yolov5:1.0
-    replicas: 3
     uses_with:
       weights_or_url: ${{ ENV.YOLO_WEIGHTS }}
-      device: "0"
-      image_size: 640
-  - name: DeepSORT
+      device: ${{ ENV.YOLO_DEVICE }}
+      image_size: ${{ ENV.IMAGE_SIZE }}
+  - name: Tracker
     uses: docker://jina-tracker:1.0
     uses_with:
       embedder_kwargs:
@@ -19,9 +18,17 @@ executors:
         embedder_model_name: ${{ ENV.TRACKER_EMBEDDER_MODEL_NAME }}
         embedder_model_version: ${{ ENV.TRACKER_EMBEDDER_MODEL_VERSION }}
         triton_url: ${{ ENV.TRACKER_TRITON_URL }}
+  - name: SaveFrame
+    uses: docker://jina-save-stream:1.0
+    floating: true
+    uses_with:
+      path: ${{ ENV.SAVE_DIR }}
+      height: ${{ ENV.OUTPUT_HEIGHT }}
+      width: ${{ ENV.OUTPUT_WIDTH }}
   - name: Output
     uses: docker://jina-stream-output:1.0
     uses_with:
       address: ${{ ENV.OUTPUT_ADDRESS }}
       port: ${{ ENV.OUTPUT_PORT }}
-      zmq: ${{ ENV.OUTPUT_USE_ZMQ }}
+      height: ${{ ENV.OUTPUT_HEIGHT }}
+      width: ${{ ENV.OUTPUT_WIDTH }}
