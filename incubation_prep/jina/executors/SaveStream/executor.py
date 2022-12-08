@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Dict
 
 import cv2
-import numpy as np
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 
