@@ -13,10 +13,12 @@ import cv2
 import numpy as np
 import zmq
 import zmq.asyncio
+
 from confluent_kafka import Producer
 from docarray import Document, DocumentArray
-
 from jina import Client as JinaClient
+
+from baseline.pipeline import BaselinePipeline
 
 _loop = None
 
@@ -42,6 +44,7 @@ class Client:
         jina_config: Optional[Dict] = None,
         kafka_config: Optional[Dict] = None,
         zmq_config: Optional[Dict] = None,
+        baseline_config: Optional[Dict] = None,
         producer_topic: str = "frames",
     ):
         self.jina_client = None
@@ -58,6 +61,9 @@ class Client:
             self.zmq_client = self.zmq_context.socket(zmq.PUB)
             self.zmq_client.bind(f"tcp://{zmq_config['host']}:{zmq_config['port']}")
             self.zmq_config = zmq_config
+        if baseline_config is not None:
+            self.baseline_config = baseline_config
+            self.baseline_pipe = BaselinePipeline(**baseline_config)
         self.producer_topic = producer_topic
 
     @staticmethod
@@ -127,6 +133,10 @@ class Client:
         serialized_docarray = DocumentArray([frame]).to_bytes()
         await socket.send_multipart([serialized_docarray])
 
+    @staticmethod
+    def send_sync_baseline(frame: Document, pipe: BaselinePipeline):
+        pipe(DocumentArray([frame]))
+
     def infer(
         self,
         broker: BrokerType,
@@ -156,6 +166,10 @@ class Client:
             elif broker == BrokerType.zmq:
                 fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
                 gc.collect()
+            elif broker == BrokerType.baseline:
+                self.send_sync_baseline(
+                    frame,self.baseline_pipe
+                )
             else:
                 raise NotImplementedError
 
@@ -164,7 +178,7 @@ class Client:
 @click.option("--broker", "-b", type=click.Choice(["jina", "kafka", "zmq", "baseline"]))
 @click.option("--video", "-v", type=click.Path(exists=True))
 @click.option("--stream-name", "-s", type=str)
-@click.option("--output-path", required=False, type=click.Path())
+@click.option("--output-path", required=False, type=click.Path(), default=getenv("NFS_MOUNT", "/data"))
 @click.option("--send-image/--no-send-image", default=True)
 @click.option("--nfs", is_flag=True)
 @click.option("--redis", is_flag=True)
@@ -194,6 +208,16 @@ def main(
         zmq_config={
             "host": getenv("ZMQ_HOSTNAME", "*"),
             "port": getenv("ZMQ_PORT_OUT", "5555"),
+        },
+        baseline_config={
+            "yolo_weights": getenv("YOLO_WEIGHTS", "baseline/weights/yolov5s.pt"),
+            "embedder": getenv("TRACKER_EMBEDDER", "mobilenet"),
+            "embedder_wts": getenv("TRACKER_EMBEDDER_WTS", None),
+            "triton_url": getenv("TRACKER_TRITON_URL", "grpc://172.20.0.4:8001"),
+            "output_address": getenv("OUTPUT_ADDRESS", "rtsp://127.0.0.1"),
+            "output_port": getenv("OUTPUT_PORT", 8554),
+            "zmq": bool(getenv("OUTPUT_USE_ZMQ", False)),
+            "output_path": getenv("", "./final"),
         },
         producer_topic=getenv("KAFKA_PRODUCE_TOPIC", "frames"),
     )

@@ -1,18 +1,21 @@
-from typing import Dict, List, Optional, Tuple, Union
+import json
+from datetime import datetime
+from os import getenv
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
+from .component import Component
 from deep_sort_realtime.deep_sort.track import Track
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from docarray import Document, DocumentArray
-
-from .component import Component
-from .embedder import DeepSORTEmbedder
+from .embedder import DeepSORTEmbedder, Embedder
 
 
 class ObjectTracker(Component):
     """"""
 
-    def __init__(self, embedder_kwargs: Optional[Dict] = None, **kwargs):
+    def __init__(self, embedder_kwargs: Optional[Dict] = None, name: str = "track-baseline",**kwargs):
+        super().__init__(name=name)
         if embedder_kwargs is None:
             embedder_kwargs = {}
         self.embedder = DeepSORTEmbedder(**embedder_kwargs)
@@ -29,7 +32,34 @@ class ObjectTracker(Component):
             # embedding of each cropped det
             image = frame.tensor
             if not frame.matches.embeddings:
-                embeds = self.embedder(image, dets)
+                if self.embedder.embedder != Embedder.triton:
+                    with self.timer(
+                        metadata={
+                            "event": "non_triton_model_processing",
+                            "timestamp": datetime.now().isoformat(),
+                            "executor": self.executor_name,
+                            "executor_id": self.executor_id,
+                        }
+                    ):
+                        embeds = self.embedder(image, dets)
+                    no_inferences = len(dets)
+                    metric = {
+                        "type": "non_triton_inference",
+                        "timestamp": datetime.now().isoformat(),
+                        "executor": self.executor_name,
+                        "executor_id": self.executor_id,
+                        "output_stream": frame.tags["output_stream"],
+                        "video_source": frame.tags["video_path"],
+                        "frame_id": frame.tags["frame_id"],
+                        "value": no_inferences,
+                    }
+                    # Produce metric
+                    self.metric_producer.produce(
+                        self.metrics_topic, value=json.dumps(metric).encode("utf-8")
+                    )
+                    self.metric_producer.poll(0)
+                else:
+                    embeds = self.embedder(image, dets)
             else:
                 embeds = frame.matches.embeddings
             tracks = self.trackers[output_stream].update_tracks(dets, embeds=embeds)
@@ -75,3 +105,16 @@ class ObjectTracker(Component):
                 )
             )
         return DocumentArray(results)
+
+
+if __name__ == "__main__":
+    executor = ObjectTracker(
+        {
+            "embedder": getenv("TRACKER_EMBEDDER", "mobilenet"),
+            "embedder_model_name": getenv("TRACKER_EMBEDDER_MODEL_NAME", None),
+            "embedder_wts": getenv("TRACKER_EMBEDDER_WTS", None),
+            "embedder_model_version": getenv("TRACKER_EMBEDDER_MODEL_VERSION", None),
+            "triton_url": getenv("TRACKER_TRITON_URL", None),
+        }
+    )
+    executor.serve()

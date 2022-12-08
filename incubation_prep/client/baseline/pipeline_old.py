@@ -9,6 +9,7 @@ from components.component import Component
 from components.det import YOLODetector
 from components.output import StreamOutput
 from components.track import ObjectTracker
+from components.save import SaveStream
 from docarray import Document, DocumentArray
 
 
@@ -20,6 +21,7 @@ class Pipeline:
         output_address: str,
         output_port: str,
         zmq: bool,
+        output_path: str,
         embedder_wts: Optional[str] = None,
     ):
         self.components: Dict[str, Component] = {
@@ -34,6 +36,7 @@ class Pipeline:
                 }
             ),
             "output": StreamOutput(address=output_address, port=output_port, zmq=zmq),
+            "save": SaveStream(path=output_path),
         }
 
     @staticmethod
@@ -77,15 +80,16 @@ class Pipeline:
             for frame in self.read_video(cap, video_path, output_path):
                 # skip every n frames
                 if frames % infer_frame_skip == 0:
-                    frame = self.components["det"](frame)
+                    frame = self.components["det"]._call_main(frame)
                     if not no_track:
-                        frame = self.components["tracker"](frame)
+                        frame = self.components["tracker"]._call_main(frame)
                     self.buffer_dets = DocumentArray(frame[0].matches, copy=True)
                 else:
                     # if skip frame, just use previous frame prediction
                     if self.buffer_dets:
                         frame[0].matches = self.buffer_dets
-                frame = self.components["output"](frame)
+                frame = self.components["output"]._call_main(frame)
+                frame = self.components["save"]._call_main(frame)
                 frames += 1
         finally:
             end = perf_counter()

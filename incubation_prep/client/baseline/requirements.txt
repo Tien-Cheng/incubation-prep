@@ -1,0 +1,15 @@
+# Common
+pyzmq
+imagezmq
+docarray
+confluent-kafka
+simpletimer-kafka==0.1.9
+
+# Specific
+opencv-python==4.5.5.64
+vidgear[core]
+deep-sort-realtime
+numpy
+torch
+torchvision
+Pillow

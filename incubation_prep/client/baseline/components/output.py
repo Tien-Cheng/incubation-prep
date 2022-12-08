@@ -1,11 +1,11 @@
+from os import getenv
 from typing import Dict, Optional, Union
 
 import cv2
-from vidgear.gears import NetGear, WriteGear
-
-from jina import DocumentArray
-
 from .component import Component
+from confluent_kafka import SerializingProducer
+from docarray import DocumentArray
+from vidgear.gears import NetGear, WriteGear
 
 
 class StreamOutput(Component):
@@ -21,7 +21,9 @@ class StreamOutput(Component):
         zmq: bool = False,
         ffmpeg_config: Optional[Dict] = None,
         zmq_config: Optional[Dict] = None,
+        name: str = "output-baseline"
     ):
+        super().__init__(name=name)
         self.address = address
         self.port = port
         self.fps = fps
@@ -49,6 +51,13 @@ class StreamOutput(Component):
         if zmq:
             self.create_stream = self.create_stream_zmq
 
+        self.last_frame: Dict[str, str] = {}
+        self.metric_producer = SerializingProducer(
+            {
+                **self.conf,
+            }
+        )
+
     def create_stream(self, name: str):
         self.streams[name] = WriteGear(
             f"{self.address}:{self.port}/{name}",
@@ -61,7 +70,7 @@ class StreamOutput(Component):
         self.streams[name] = NetGear(
             address=self.address,
             port=self.port,
-            logging=True,
+            logging=False,
             receive_mode=False,
             **self.zmq_config,
         )
@@ -101,13 +110,31 @@ class StreamOutput(Component):
                         1,
                         (255, 0, 0),
                     )
+
+            # We assume input is RGB
             frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
             frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
             try:
+                self.logger.info(f"[{output_stream}] Sending frame")
                 if self.zmq:
                     self.streams[output_stream].send(frame.tensor)
                 else:
                     self.streams[output_stream].write(frame.tensor)
-            except:
+            except ValueError:
+                if self.zmq:
+                    self.create_stream_zmq(output_stream)
+                else:
+                    self.create_stream(output_stream)
                 pass
-        return docs
+            return docs
+
+
+if __name__ == "__main__":
+    executor = StreamOutput(
+        address=getenv("OUTPUT_ADDRESS", "rtsp://127.0.0.1"),
+        port=str(getenv("OUTPUT_PORT", 8554)),
+        zmq=bool(getenv("OUTPUT_USE_ZMQ", False)),
+        width=int(getenv("OUTPUT_WIDTH", 1280)),
+        height=int(getenv("OUTPUT_HEIGHT", 720)),
+    )
+    executor.serve()
