@@ -20,7 +20,7 @@ spec:
             claimName: data-volume
       containers:
       - name: pubsub-save-frames-1
-        image: tiencheng/pubsub-save-frames:1.0
+        image: tiencheng/pubsub-save-frames:1.1
         resources:
           limits:
             cpu: "2.0"
