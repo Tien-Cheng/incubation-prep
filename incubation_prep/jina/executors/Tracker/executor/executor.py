@@ -36,7 +36,7 @@ class ObjectTracker(Executor):
         self.timer = StopwatchKafka(
             bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
             kafka_topic=self.metrics_topic,
-            metadata={"type": "processing_time", "executor": self.executor_name},
+            metadata={"executor": self.executor_name},
             kafka_parition=-1,
         )
 
@@ -140,8 +140,13 @@ class ObjectTracker(Executor):
 
     @staticmethod
     def _get_dets(frame: Document) -> List[Tuple[List[Union[int, float]], float, str]]:
+        # DeepSORT wants LTWH format instead of YOLO LTRB format
         return [
-            (det.tags["bbox"], det.tags["confidence"], det.tags["class_name"])
+            (
+                [det.tags["bbox"][0], det.tags["bbox"][1], det.tags["bbox"][2] - det.tags["bbox"][0], det.tags["bbox"][3] - det.tags["bbox"][1]],
+                det.tags["confidence"],
+                det.tags["class_name"]
+            )
             for det in frame.matches
         ]
 

@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from os import getenv
 from typing import Dict, List, Optional, Tuple, Type, Union
@@ -73,8 +74,13 @@ class ObjectTracker(Component):
 
     @staticmethod
     def _get_dets(frame: Document) -> List[Tuple[List[Union[int, float]], float, str]]:
+        # DeepSORT wants LTWH format instead of YOLO LTRB format
         return [
-            (det.tags["bbox"], det.tags["confidence"], det.tags["class_name"])
+            (
+                [det.tags["bbox"][0], det.tags["bbox"][1], det.tags["bbox"][2] - det.tags["bbox"][0], det.tags["bbox"][3] - det.tags["bbox"][1]],
+                det.tags["confidence"],
+                det.tags["class_name"]
+            )
             for det in frame.matches
         ]
 

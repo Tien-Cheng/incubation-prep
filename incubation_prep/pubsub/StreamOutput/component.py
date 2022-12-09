@@ -38,7 +38,7 @@ class Component(ABC):
     timer = StopwatchKafka(
         bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
         kafka_topic=metrics_topic,
-        metadata={"type": "processing_time", "executor": executor_name},
+        metadata={"executor": executor_name},
         kafka_parition=-1,
     )
 

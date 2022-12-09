@@ -42,8 +42,6 @@ class BaselinePipeline:
         frame = self.components["det"]._call_main(frame)
         frame = self.components["tracker"]._call_main(frame)
         Thread(target=self.__display_frame, args=(frame, self.components["output"], self.components["save"]), daemon=True).start()
-        # frame = self.components["output"]._call_main(frame)
-        # frame = self.components["save"]._call_main(frame)
         return frame
 
     @staticmethod
