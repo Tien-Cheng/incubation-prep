@@ -8,6 +8,8 @@ RUN python3 -m pip install --no-cache-dir jina${JINA_VERSION:+==${JINA_VERSION}}
 COPY requirements.txt requirements.txt
 RUN pip install --default-timeout=1000 --compile -r requirements.txt
 
+RUN git clone https://github.com/Tien-Cheng/yolov5-pip.git
+RUN pip install yolov5-pip/
 RUN git clone https://github.com/Tien-Cheng/bytetrack-pip.git
 RUN pip install bytetrack-pip/
 
