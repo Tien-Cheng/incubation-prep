@@ -23,6 +23,8 @@ class YOLODetector(Component):
         super().__init__()
         self.traversal_path = traversal_path
         self.model = YOLOv5(weights_or_url, device)
+        self.model.model.conf = 0.6
+        self.model.model.max_det = 500
         self.image_size = image_size
         self.is_triton = weights_or_url.startswith("grpc")
 

@@ -34,7 +34,6 @@ class ObjectTracker(Component):
 
     @staticmethod
     def _get_dets(frame: Document) -> List[Tuple[List[Union[int, float]], float, str]]:
-        # DeepSORT wants LTWH format instead of YOLO LTRB format
         det = [
             [
                 *det.tags["bbox"],

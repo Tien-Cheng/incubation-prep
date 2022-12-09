@@ -3,26 +3,23 @@ from datetime import datetime
 from os import getenv
 from typing import Dict, List, Optional, Tuple, Union
 
+import torch
 import numpy as np
 from confluent_kafka import Producer
-from deep_sort_realtime.deep_sort.track import Track
-from deep_sort_realtime.deepsort_tracker import DeepSort
 from simpletimer import StopwatchKafka
 
 from jina import Document, DocumentArray, Executor, requests
-
-from .embedder import DeepSORTEmbedder, Embedder
+from bytetracker import BYTETracker
 
 
 class ObjectTracker(Executor):
     """"""
 
-    def __init__(self, embedder_kwargs: Optional[Dict] = None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if embedder_kwargs is None:
             embedder_kwargs = {}
-        self.embedder = DeepSORTEmbedder(**embedder_kwargs)
-        self.trackers: Dict[str, DeepSort] = {}
+        self.trackers: Dict[str, BYTETracker] = {}
 
         # Common Logic
         self.metrics_topic = getenv("KAFKA_METRICS_TOPIC", "metrics")
@@ -94,40 +91,7 @@ class ObjectTracker(Executor):
                 output_stream: str = frame.tags["output_stream"]
                 if output_stream not in self.trackers:
                     self._create_tracker(output_stream)
-                # embedding of each cropped det
-                image = frame.tensor
-                if not frame.matches.embeddings:
-                    if self.embedder.embedder != Embedder.triton:
-                        with self.timer(
-                            metadata={
-                                "event": "non_triton_model_processing",
-                                "timestamp": datetime.now().isoformat(),
-                                "executor": self.executor_name,
-                                "executor_id": self.executor_id,
-                            }
-                        ):
-                            embeds = self.embedder(image, dets)
-                        no_inferences = len(dets)
-                        metric = {
-                            "type": "non_triton_inference",
-                            "timestamp": datetime.now().isoformat(),
-                            "executor": self.executor_name,
-                            "executor_id": self.executor_id,
-                            "output_stream": frame.tags["output_stream"],
-                            "video_source": frame.tags["video_path"],
-                            "frame_id": frame.tags["frame_id"],
-                            "value": no_inferences,
-                        }
-                        # Produce metric
-                        self.metric_producer.produce(
-                            self.metrics_topic, value=json.dumps(metric).encode("utf-8")
-                        )
-                        self.metric_producer.poll(0)
-                    else:
-                        embeds = self.embedder(image, dets)
-                else:
-                    embeds = frame.matches.embeddings
-                tracks = self.trackers[output_stream].update_tracks(dets, embeds=embeds)
+                tracks = self.trackers[output_stream].update(dets, None)
                 # Update matches using tracks
                 frame.matches = self._update_dets(tracks)
             if not send_tensors:
@@ -135,47 +99,39 @@ class ObjectTracker(Executor):
             return docs
 
     def _create_tracker(self, name: str):
-        tracker = DeepSort(embedder=None)
+        tracker = BYTETracker()
         self.trackers[name] = tracker
 
     @staticmethod
     def _get_dets(frame: Document) -> List[Tuple[List[Union[int, float]], float, str]]:
-        # DeepSORT wants LTWH format instead of YOLO LTRB format
-        return [
-            (
-                [det.tags["bbox"][0], det.tags["bbox"][1], det.tags["bbox"][2] - det.tags["bbox"][0], det.tags["bbox"][3] - det.tags["bbox"][1]],
+        det = [
+            [
+                *det.tags["bbox"],
                 det.tags["confidence"],
                 det.tags["class_name"]
-            )
+            ]
             for det in frame.matches
         ]
+        return torch.tensor(np.array(det, dtype=np.float32))
 
     @staticmethod
-    def _update_dets(tracks: List[Track]) -> DocumentArray:
+    def _update_dets(tracks: np.ndarray) -> DocumentArray:
         results = []
-        for track in tracks:
-            bbox: np.ndarray = track.to_ltrb()
-            bbox = bbox.astype(np.int32).tolist()
-            conf = track.get_det_conf()
-            cls = track.get_det_class()
-            track_id = track.track_id
-            if not (
-                bbox is not None
-                and conf is not None
-                and cls is not None
-                and track_id is not None
-            ):
-                continue
-            results.append(
-                Document(
-                    tags={
-                        "bbox": bbox,
-                        "confidence": conf,
-                        "class_name": cls,
-                        "track_id": track_id,
-                    }
+        try:
+            tracks = list(tracks)
+            for track in tracks:
+                results.append(
+                    Document(
+                        tags={
+                            "bbox": track[:4],
+                            "confidence": track[6],
+                            "class_name": track[5],
+                            "track_id": track[4],
+                        }
+                    )
                 )
-            )
+        except Exception as e:
+            print(e)
         return DocumentArray(results)
 
     @staticmethod

@@ -80,7 +80,7 @@ class YOLODetector(Component):
                         }
                     )
                     for det in dets
-                    if det.size()[0] != 0 if det[4].item() > 0.70
+                    if det.size()[0] != 0 
                 ]
             )
             return docs

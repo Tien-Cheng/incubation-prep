@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y gcc libc6-dev g
 COPY requirements.txt requirements.txt
 RUN pip install --default-timeout=1000 --compile -r requirements.txt
 
+RUN git clone https://github.com/Tien-Cheng/bytetrack-pip.git
+RUN pip install bytetrack-pip/
+
 COPY . /workdir/
 WORKDIR /workdir
 
