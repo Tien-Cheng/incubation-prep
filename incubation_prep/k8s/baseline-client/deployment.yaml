@@ -20,7 +20,7 @@ spec:
             claimName: data-volume
       containers:
       - name: client
-        image: tiencheng/test-client:1.3
+        image: tiencheng/test-client:1.4
         ports:
         - containerPort: 80
         command: ["sleep"]
@@ -29,12 +29,12 @@ spec:
           limits:
             # Need GPU as this client directly runs baseline code
             # Limit the application to using one GPU
-            cpu: "4.0"
+            cpu: "16.0"
             memory: "8Gi"
             nvidia.com/gpu: 1
           requests:
             # Request 1 gpu
-            cpu: "4.0"
+            cpu: "16.0"
             memory: "8Gi"
             nvidia.com/gpu: 1
         envFrom:
