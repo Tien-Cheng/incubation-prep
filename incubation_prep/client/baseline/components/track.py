@@ -1,18 +1,27 @@
+from os import getenv
 import numpy as np
 import torch
 from typing import Dict, List, Tuple, Union
 
 from .component import Component
+from datetime import datetime
 from docarray import Document, DocumentArray
 from bytetracker import BYTETracker
+from simpletimer import StopwatchKafka
 
 
 class ObjectTracker(Component):
     """"""
 
-    def __init__(self, name: str = "track-baseline",**kwargs):
+    def __init__(self, name: str = "track-baseline", **kwargs):
         super().__init__(name=name)
         self.trackers: Dict[str, BYTETracker] = {}
+        self.non_triton_timer = StopwatchKafka(
+            bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+            kafka_topic=self.metrics_topic,
+            metadata={"executor": self.executor_name},
+            kafka_parition=-1,
+        )
 
     def __call__(self, docs: DocumentArray, **kwargs):
         all_dets = docs.map(self._get_dets)
@@ -23,7 +32,15 @@ class ObjectTracker(Component):
             if output_stream not in self.trackers:
                 self._create_tracker(output_stream)
             # embedding of each cropped det
-            tracks = self.trackers[output_stream].update(dets, None)
+            with self.non_triton_timer(
+                metadata={
+                    "event": "non_triton_model_processing",
+                    "timestamp": datetime.now().isoformat(),
+                    "executor": self.executor_name,
+                    "executor_id": self.executor_id,
+                }
+            ):
+                tracks = self.trackers[output_stream].update(dets, None)
             # Update matches using tracks
             frame.matches = self._update_dets(tracks)
         return docs
@@ -35,11 +52,7 @@ class ObjectTracker(Component):
     @staticmethod
     def _get_dets(frame: Document) -> List[Tuple[List[Union[int, float]], float, str]]:
         det = [
-            [
-                *det.tags["bbox"],
-                det.tags["confidence"],
-                det.tags["class_name"]
-            ]
+            [*det.tags["bbox"], det.tags["confidence"], det.tags["class_name"]]
             for det in frame.matches
         ]
         return torch.tensor(np.array(det, dtype=np.float32))

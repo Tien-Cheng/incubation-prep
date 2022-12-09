@@ -6,15 +6,22 @@ import numpy as np
 from component import Component
 from docarray import Document, DocumentArray
 from bytetracker import BYTETracker
+from simpletimer import StopwatchKafka
 
 
 class ObjectTracker(Component):
     """"""
     def __init__(self, **kwargs):
         super().__init__()
-        if embedder_kwargs is None:
-            embedder_kwargs = {}
         self.trackers: Dict[str, BYTETracker] = {}
+        self.non_triton_timer = StopwatchKafka(
+            bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+            kafka_topic=self.metrics_topic,
+            metadata={"executor": self.executor_name},
+            kafka_parition=-1,
+        )
+
+
 
     def __call__(self, docs: DocumentArray, **kwargs):
         all_dets = docs.map(self._get_dets)
