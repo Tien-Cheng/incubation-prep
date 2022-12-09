@@ -32,11 +32,8 @@ faust-streaming = "^0.10.0"
 gdown = "^4.5.4"
 simpletimer-kafka = "0.1.9"
 confluent-kafka = "^1.9.2"
+bytetracker = "^0.2.4"
 
-
-[tool.poetry.group.dev.dependencies]
-black = "^22.10.0"
-isort = "^5.10.1"
 
 [build-system]
 requires = ["poetry-core"]
