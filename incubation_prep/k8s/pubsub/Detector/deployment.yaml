@@ -26,7 +26,7 @@ spec:
             cpu: "4.0"
             memory: "8Gi"
           requests:
-            cpu: "1.0"
+            cpu: "2.0"
             memory: "4Gi"
         # Add the following env section
         env:
