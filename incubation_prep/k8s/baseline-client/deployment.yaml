@@ -20,7 +20,7 @@ spec:
             claimName: data-volume
       containers:
       - name: client
-        image: tiencheng/test-client:1.4
+        image: tiencheng/test-client:1.5
         ports:
         - containerPort: 80
         command: ["sleep"]
