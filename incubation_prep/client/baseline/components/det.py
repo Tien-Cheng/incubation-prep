@@ -3,12 +3,10 @@ from datetime import datetime
 from os import getenv
 from typing import Dict, List
 
-import yolov5
 import numpy as np
 from .component import Component
 from docarray import Document, DocumentArray
 from yolov5 import YOLOv5
-from yolov5.utils.general import non_max_suppression
 from yolov5.models.common import Detections
 
 
@@ -26,7 +24,7 @@ class YOLODetector(Component):
         super().__init__(name=name)
         self.traversal_path = traversal_path
         self.model = YOLOv5(weights_or_url, device)
-        self.model.model.conf = 0.7
+        self.model.model.conf = 0.6
         self.model.model.max_det = 500
         self.image_size = image_size
         self.is_triton = weights_or_url.startswith("grpc")

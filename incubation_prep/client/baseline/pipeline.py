@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict
 from threading import Thread
 
 from docarray import Document
@@ -15,24 +15,21 @@ class BaselinePipeline:
     def __init__(
         self,
         yolo_weights: str,
-        embedder: str,
         output_address: str,
         output_port: str,
         zmq: bool,
         output_path: str,
-        embedder_wts: Optional[str] = None,
-        triton_url: Optional[str] = None
     ):
         self.components: Dict[str, Component] = {
             "det": YOLODetector(yolo_weights, "0", 640),
             "tracker": ObjectTracker(
-                {
-                    "embedder": embedder,
-                    "embedder_model_name": "mobilenet",
-                    "embedder_model_version": "1",
-                    "embedder_wts": embedder_wts,
-                    "triton_url": triton_url,
-                }
+                # {
+                #     "embedder": embedder,
+                #     "embedder_model_name": "mobilenet",
+                #     "embedder_model_version": "1",
+                #     "embedder_wts": embedder_wts,
+                #     "triton_url": triton_url,
+                # }
             ),
             "output": StreamOutput(address=output_address, port=output_port, zmq=zmq),
             "save": SaveStream(path=output_path),

@@ -10,6 +10,4 @@ opencv-python==4.5.5.64
 vidgear[core]
 deep-sort-realtime
 numpy
-torch
-torchvision
 Pillow

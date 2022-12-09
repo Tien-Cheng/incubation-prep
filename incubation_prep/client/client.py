@@ -213,13 +213,10 @@ def main(
         },
         baseline_config={
             "yolo_weights": getenv("YOLO_WEIGHTS", "baseline/weights/yolov5s.pt"),
-            "embedder": getenv("TRACKER_EMBEDDER", "mobilenet"),
-            "embedder_wts": getenv("TRACKER_EMBEDDER_WTS", None),
-            "triton_url": getenv("TRACKER_TRITON_URL", "grpc://172.20.0.4:8001"),
             "output_address": getenv("OUTPUT_ADDRESS", "rtsp://127.0.0.1"),
             "output_port": getenv("OUTPUT_PORT", 8554),
             "zmq": bool(getenv("OUTPUT_USE_ZMQ", False)),
-            "output_path": getenv("", "./final"),
+            "output_path": getenv("SAVE_DIR", "./final"),
         } if load_baseline else None,
         producer_topic=getenv("KAFKA_PRODUCE_TOPIC", "frames"),
     )
