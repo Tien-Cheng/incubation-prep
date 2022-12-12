@@ -35,7 +35,7 @@ spec:
         - name: KAFKA_CONSUMER_GROUP
           value: track
         - name: KAFKA_CONSUME_TOPIC
-          value: dets2
+          value: dets
         - name: KAFKA_PRODUCE_TOPIC
           value: tracks2
         envFrom:
