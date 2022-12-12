@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 import torch
 import numpy as np
 from component import Component
+from datetime import datetime
 from docarray import Document, DocumentArray
 from bytetracker import BYTETracker
 from simpletimer import StopwatchKafka
@@ -31,7 +32,15 @@ class ObjectTracker(Component):
             output_stream: str = frame.tags["output_stream"]
             if output_stream not in self.trackers:
                 self._create_tracker(output_stream)
-            tracks = self.trackers[output_stream].update(dets, None)
+            with self.non_triton_timer(
+                metadata={
+                    "event": "non_triton_model_processing",
+                    "timestamp": datetime.now().isoformat(),
+                    "executor": self.executor_name,
+                    "executor_id": self.executor_id,
+                }
+            ):
+                tracks = self.trackers[output_stream].update(dets, None)
             # Update matches using tracks
             frame.matches = self._update_dets(tracks)
         return docs
