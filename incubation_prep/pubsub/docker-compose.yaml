@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  pubsub-detector:
+    image: pubsub-detector:1.1
+    networks:
+      - host
+
+  pubsub-save-frames:
+    image: pubsub-save-frames:1.1
+    networks:
+      - host
+
+  pubsub-stream-output:
+    image: pubsub-stream-output:1.1
+    networks:
+      - host
+
+  pubsub-tracker:
+    image: pubsub-tracker:1.1
+    networks:
+      - host
+
+networks:
+  host:
+    external:
+      name: host
