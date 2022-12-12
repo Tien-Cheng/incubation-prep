@@ -1,18 +1,6 @@
-[submodule "mish-cuda"]
-	path = mish-cuda
-	url = https://github.com/JunnYu/mish-cuda
-[submodule "ScaledYOLOv4"]
-	path = ScaledYOLOv4
-	url = https://github.com/Tien-Cheng/ScaledYOLOv4.git
-[submodule "yolov5"]
-	path = yolov5
-	url = https://github.com/ultralytics/yolov5.git
 [submodule "yolov5-pip"]
 	path = yolov5-pip
 	url = https://github.com/Tien-Cheng/yolov5-pip.git
-[submodule "deep-person-reid"]
-	path = deep-person-reid
-	url = https://github.com/KaiyangZhou/deep-person-reid.git
 [submodule "bytetrack-pip"]
 	path = bytetrack-pip
 	url = git@github.com:Tien-Cheng/bytetrack-pip.git
