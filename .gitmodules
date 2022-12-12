@@ -13,3 +13,6 @@
 [submodule "deep-person-reid"]
 	path = deep-person-reid
 	url = https://github.com/KaiyangZhou/deep-person-reid.git
+[submodule "bytetrack-pip"]
+	path = bytetrack-pip
+	url = git@github.com:Tien-Cheng/bytetrack-pip.git
