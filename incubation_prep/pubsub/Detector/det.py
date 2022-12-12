@@ -4,6 +4,7 @@ from os import getenv
 from typing import Dict, List
 
 import numpy as np
+from simpletimer import StopwatchKafka
 from component import Component
 from docarray import Document, DocumentArray
 from yolov5 import YOLOv5
@@ -27,6 +28,12 @@ class YOLODetector(Component):
         self.model.model.max_det = 500
         self.image_size = image_size
         self.is_triton = weights_or_url.startswith("grpc")
+        self.non_triton_timer = StopwatchKafka(
+            bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+            kafka_topic=self.metrics_topic,
+            metadata={"executor": self.executor_name},
+            kafka_parition=-1,
+        )
 
     def __call__(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # NOTE: model currently does not support batch inference
@@ -37,7 +44,7 @@ class YOLODetector(Component):
         if self.is_triton:
             results: Detections = self.model.predict(frames, size=self.image_size)
         else:
-            with self.timer(
+            with self.non_triton_timer(
                 metadata={
                     "event": "non_triton_model_processing",
                     "timestamp": datetime.now().isoformat(),
