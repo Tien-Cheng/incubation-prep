@@ -1,0 +1,115 @@
+apiVersion: v1
+data:
+  JINA_LOG_LEVEL: INFO
+  pythonunbuffered: '1'
+  worker_class: uvicorn.workers.UvicornH11Worker
+kind: ConfigMap
+metadata:
+  name: output3-configmap
+  namespace: default
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: output3
+  name: output3
+  namespace: default
+spec:
+  ports:
+  - name: port
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: output3
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: output3
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: output3
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: enabled
+      labels:
+        app: output3
+        jina_deployment_name: Output3
+        ns: default
+        pod_type: WORKER
+        shard_id: '0'
+    spec:
+      containers:
+      - args:
+        - executor
+        - --name
+        - Output3
+        - --extra-search-paths
+        - ''
+        - --k8s-namespace
+        - default
+        - --uses
+        - config.yml
+        - --port
+        - '8080'
+        - --port-monitoring
+        - '9090'
+        - --uses-metas
+        - '{}'
+        - --uses-with
+        - '{"address": "$OUTPUT_ADDRESS", "port": "$OUTPUT_PORT", "height": "$OUTPUT_HEIGHT",
+          "width": "$OUTPUT_WIDTH"}'
+        - --native
+        command:
+        - jina
+        env:
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: JINA_DEPLOYMENT_NAME
+          value: Output3
+        - name: K8S_DEPLOYMENT_NAME
+          value: output3
+        - name: K8S_NAMESPACE_NAME
+          value: default
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        envFrom:
+        - configMapRef:
+            name: output3-configmap
+        - configMapRef:
+            name: kafka-common
+        - configMapRef:
+            name: component-common
+        - configMapRef:
+            name: non-triton
+        image: jina-stream-output:1.0
+        imagePullPolicy: IfNotPresent
+        name: executor
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          exec:
+            command:
+            - jina
+            - ping
+            - executor
+            - 127.0.0.1:8080
+          initialDelaySeconds: 5
+          periodSeconds: 20
+          timeoutSeconds: 10

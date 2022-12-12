@@ -23,7 +23,7 @@ executors:
     when:
       tags__output_stream:
         $eq: 2
-  - name: Tracker2
+  - name: Tracker3
     uses: docker://jina-tracker:1.0
     needs: Detector
     when:
