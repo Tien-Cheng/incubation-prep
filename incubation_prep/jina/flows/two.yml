@@ -1,0 +1,54 @@
+jtype: Flow
+with:
+  port: 4091
+  prefetch: 5
+  protocol: grpc
+executors:
+  - name: Detector
+    uses: docker://jina-detector:1.0
+    replicas: 2
+    uses_with:
+      weights_or_url: ${{ ENV.YOLO_WEIGHTS }}
+      device: ${{ ENV.YOLO_DEVICE }}
+      image_size: ${{ ENV.IMAGE_SIZE }}
+  - name: Tracker1
+    uses: docker://jina-tracker:1.0
+    needs: Detector
+    when:
+      tags__output_stream:
+        $eq: 1
+  - name: Tracker2
+    uses: docker://jina-tracker:1.0
+    needs: Detector
+    when:
+      tags__output_stream:
+        $eq: 2
+  - name: SaveFrame
+    uses: docker://jina-save-stream:1.0
+    floating: true
+    uses_with:
+      path: ${{ ENV.SAVE_DIR }}
+      height: ${{ ENV.OUTPUT_HEIGHT }}
+      width: ${{ ENV.OUTPUT_WIDTH }}
+  - name: Output1
+    uses: docker://jina-stream-output:1.0
+    needs: Tracker1
+    when:
+      tags__output_stream:
+        $eq: 1
+    uses_with:
+      address: ${{ ENV.OUTPUT_ADDRESS }}
+      port: ${{ ENV.OUTPUT_PORT }}
+      height: ${{ ENV.OUTPUT_HEIGHT }}
+      width: ${{ ENV.OUTPUT_WIDTH }}
+  - name: Output2
+    uses: docker://jina-stream-output:1.0
+    needs: Tracker2
+    when:
+      tags__output_stream:
+        $eq: 2
+    uses_with:
+      address: ${{ ENV.OUTPUT_ADDRESS }}
+      port: ${{ ENV.OUTPUT_PORT }}
+      height: ${{ ENV.OUTPUT_HEIGHT }}
+      width: ${{ ENV.OUTPUT_WIDTH }}
