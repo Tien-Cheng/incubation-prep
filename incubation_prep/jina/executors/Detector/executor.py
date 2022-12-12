@@ -51,6 +51,14 @@ class YOLODetector(Executor):
         self.last_frame: Dict[str, str] = {}
         self.metric_producer = Producer(conf)
 
+        self.is_triton = weights_or_url.startswith("grpc")
+        self.non_triton_timer = StopwatchKafka(
+            bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+            kafka_topic=self.metrics_topic,
+            metadata={"executor": self.executor_name},
+            kafka_parition=-1,
+        )
+
     @requests
     def detect(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # Load tensors if necessary
@@ -104,7 +112,7 @@ class YOLODetector(Executor):
             if self.is_triton:
                 results: Detections = self.model.predict(frames, size=self.image_size)
             else:
-                with self.timer(
+                with self.non_triton_timer(
                     metadata={
                         "event": "non_triton_model_processing",
                         "timestamp": datetime.now().isoformat(),

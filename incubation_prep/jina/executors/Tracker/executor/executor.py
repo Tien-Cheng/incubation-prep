@@ -36,7 +36,12 @@ class ObjectTracker(Executor):
             metadata={"executor": self.executor_name},
             kafka_parition=-1,
         )
-
+        self.non_triton_timer = StopwatchKafka(
+            bootstrap_servers=getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+            kafka_topic=self.metrics_topic,
+            metadata={"executor": self.executor_name},
+            kafka_parition=-1,
+        )
         self.last_frame: Dict[str, str] = {}
         self.metric_producer = Producer(conf)
 
@@ -91,7 +96,15 @@ class ObjectTracker(Executor):
                 output_stream: str = frame.tags["output_stream"]
                 if output_stream not in self.trackers:
                     self._create_tracker(output_stream)
-                tracks = self.trackers[output_stream].update(dets, None)
+                with self.non_triton_timer(
+                    metadata={
+                        "event": "non_triton_model_processing",
+                        "timestamp": datetime.now().isoformat(),
+                        "executor": self.executor_name,
+                        "executor_id": self.executor_id,
+                    }
+                ):
+                    tracks = self.trackers[output_stream].update(dets, None)
                 # Update matches using tracks
                 frame.matches = self._update_dets(tracks)
             if not send_tensors:
