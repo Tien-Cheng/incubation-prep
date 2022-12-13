@@ -8,6 +8,7 @@ from pathlib import Path
 from time import sleep
 from typing import Dict, Optional
 
+import redis
 import click
 import cv2
 import numpy as np
@@ -45,11 +46,13 @@ class Client:
         kafka_config: Optional[Dict] = None,
         zmq_config: Optional[Dict] = None,
         baseline_config: Optional[Dict] = None,
+        redis_config: Optional[Dict] = None,
         producer_topic: str = "frames",
     ):
         self.jina_client = None
         self.kafka_client = None
         self.zmq_client = None
+        self.rds = None
         if jina_config is not None:
             self.jina_client = JinaClient(asyncio=True, **jina_config)
             self.jina_config = jina_config
@@ -64,10 +67,12 @@ class Client:
         if baseline_config is not None:
             self.baseline_config = baseline_config
             self.baseline_pipe = BaselinePipeline(**baseline_config)
+        if redis_config is not None:
+            self.rds = redis.Redis(**redis_config)
         self.producer_topic = producer_topic
 
-    @staticmethod
     def read_frames(
+        self,
         cap: cv2.VideoCapture,
         video_path: str,
         output_stream: str,
@@ -105,7 +110,10 @@ class Client:
                         cv2.imwrite(path, frame)
                         doc.uri = str(Path(path).resolve())
                     elif redis:
-                        raise NotImplementedError
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frame = cv2.imencode(".jpg", frame)[1].tobytes()
+                        self.rds.set(frame_id, frame)
+                        doc.tags["redis"] = frame_id
                 else:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     doc.tensor = np.array(frame)
@@ -167,9 +175,7 @@ class Client:
                 fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
                 gc.collect()
             elif broker == BrokerType.baseline:
-                self.send_sync_baseline(
-                    frame,self.baseline_pipe
-                )
+                self.send_sync_baseline(frame, self.baseline_pipe)
             else:
                 raise NotImplementedError
 
@@ -178,7 +184,12 @@ class Client:
 @click.option("--broker", "-b", type=click.Choice(["jina", "kafka", "zmq", "baseline"]))
 @click.option("--video", "-v", type=click.Path(exists=True))
 @click.option("--stream-name", "-s", type=str)
-@click.option("--output-path", required=False, type=click.Path(), default=getenv("NFS_MOUNT", "/data"))
+@click.option(
+    "--output-path",
+    required=False,
+    type=click.Path(),
+    default=getenv("NFS_MOUNT", "/data"),
+)
 @click.option("--send-image/--no-send-image", default=True)
 @click.option("--nfs", is_flag=True)
 @click.option("--redis", is_flag=True)
@@ -191,7 +202,7 @@ def main(
     send_image: bool,
     nfs: bool,
     redis: bool,
-    load_baseline: bool
+    load_baseline: bool,
 ):
     if redis and nfs:
         raise ValueError("Cannot have both redis and nfs enabled at same time")
@@ -217,7 +228,16 @@ def main(
             "output_port": getenv("OUTPUT_PORT", 8554),
             "zmq": bool(getenv("OUTPUT_USE_ZMQ", False)),
             "output_path": getenv("SAVE_DIR", "./final"),
-        } if load_baseline else None,
+        }
+        if load_baseline
+        else None,
+        redis_config={
+            "host": getenv("REDIS_HOST", "localhost"),
+            "port": int(getenv("REDIS_PORT", 6379)),
+            "db": int(getenv("REDIS_DB", 0)),
+        }
+        if redis
+        else None,
         producer_topic=getenv("KAFKA_PRODUCE_TOPIC", "frames"),
     )
     client.infer(broker, video, stream_name, output_path, send_image, redis, nfs)
