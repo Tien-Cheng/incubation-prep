@@ -3,3 +3,4 @@ pyzmq
 vidgear[core]
 confluent-kafka
 simpletimer-kafka==0.1.9
+redis[hiredis]

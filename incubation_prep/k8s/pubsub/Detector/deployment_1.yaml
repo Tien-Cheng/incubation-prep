@@ -45,6 +45,8 @@ spec:
               name: component-common
           - configMapRef:
               name: non-triton
+          - configMapRef:
+              name: redis-common
         volumeMounts:
           - mountPath: /data
             name: data-volume

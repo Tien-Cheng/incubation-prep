@@ -4,6 +4,7 @@ from os import getenv
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
+import redis
 import numpy as np
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
@@ -44,18 +45,26 @@ class ObjectTracker(Executor):
         )
         self.last_frame: Dict[str, str] = {}
         self.metric_producer = Producer(conf)
+        # Redis caching
+        try:
+            self.rds = redis.Redis(
+                host=getenv("REDIS_HOST", "localhost"),
+                port=int(getenv("REDIS_PORT", 6379)),
+                db=int(getenv("REDIS_DB", 0)),
+            )
+        except:
+            self.rds = None
 
     @requests
     def track(self, docs: DocumentArray, **kwargs):
         # Load tensors if necessary
         send_tensors = True
-        if (
-            docs[...].tensors is None
-            and len(docs[...].find({"uri": {"$exists": True}})) != 0
-        ):
+        if docs[...].tensors is None:
             send_tensors = False
-            docs[...].apply(self._load_uri_to_image_tensor)
-
+            if len(docs[...].find({"uri": {"$exists": True}})) != 0:
+                docs[...].apply(self._load_uri_to_image_tensor)
+            elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
+                docs[...].apply(lambda doc: self._load_image_tensor_from_redis(doc))
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
@@ -154,3 +163,12 @@ class ObjectTracker(Executor):
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
+
+    def _load_image_tensor_from_redis(self, doc: Document) -> Document:
+        image_key = doc.tags["redis"]
+        if self.rds.exists(image_key) != 0:
+            doc.blob = self.rds.get(image_key)
+            # Load bytes
+            return doc.convert_blob_to_image_tensor()
+        return doc
+

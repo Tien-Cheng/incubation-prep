@@ -16,6 +16,9 @@ RUN pip install --default-timeout=1000 --compile -r requirements.txt
 ENV EXECUTOR_NAME="stream_output"
 ENV KAFKA_ADDRESS="127.0.0.1:9092"
 ENV KAFKA_METRICS_TOPIC="metrics"
+ENV REDIS_HOST="localhost"
+ENV REDIS_PORT="6379"
+ENV REDIS_DB="0"
 
 # setup the workspace
 COPY . /workdir/

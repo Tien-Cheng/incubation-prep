@@ -8,6 +8,7 @@ from logging import Logger
 from os import getenv
 from typing import Dict, Optional
 
+import redis
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 from docarray import Document, DocumentArray
 from imagezmq import ImageSender
@@ -44,6 +45,16 @@ class Component(ABC):
 
     last_frame: Dict[str, str] = {}
     metric_producer = Producer(conf)
+
+    # Redis caching
+    try:
+        rds = redis.Redis(
+            host=getenv("REDIS_HOST", "localhost"),
+            port=int(getenv("REDIS_PORT", 6379)),
+            db=int(getenv("REDIS_DB", 0)),
+        )
+    except:
+        rds = None
 
     def __init__(self, msg_broker: Optional[Broker] = None):
         if msg_broker is None:
@@ -174,8 +185,10 @@ class Component(ABC):
         self, docs: DocumentArray, send_tensors: bool = True
     ) -> DocumentArray:
         if not send_tensors:
-            if docs[..., "uri"] is not None:
+            if len(docs[...].find({"uri": {"$exists": True}})) != 0:
                 docs[...].apply(self._load_uri_to_image_tensor)
+            elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
+                docs[...].apply(lambda doc: self._load_image_tensor_from_redis(doc))
 
         # NOTE: Assume only 1 doc inside docarray
         # Check for dropped frames
@@ -225,4 +238,12 @@ class Component(ABC):
             # NOTE: Testing shows not necessary and actually breaks stuff
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
+        return doc
+
+    def _load_image_tensor_from_redis(self, doc: Document) -> Document:
+        image_key = doc.tags["redis"]
+        if self.rds.exists(image_key) != 0:
+            doc.blob = self.rds.get(image_key)
+            # Load bytes
+            return doc.convert_blob_to_image_tensor()
         return doc

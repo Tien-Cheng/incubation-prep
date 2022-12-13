@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict
 
 import cv2
+import redis
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 
@@ -47,6 +48,16 @@ class SaveStream(Executor):
         self.last_frame: Dict[str, str] = {}
         self.metric_producer = Producer(conf)
 
+        # Redis caching
+        try:
+            self.rds = redis.Redis(
+                host=getenv("REDIS_HOST", "localhost"),
+                port=int(getenv("REDIS_PORT", 6379)),
+                db=int(getenv("REDIS_DB", 0)),
+            )
+        except:
+            self.rds = None
+
     @requests
     def save(self, docs: DocumentArray, **kwargs):
         """Read frames and save them in NFS or Redis
@@ -57,7 +68,8 @@ class SaveStream(Executor):
         if docs[...].tensors is None:
             if len(docs[...].find({"uri": {"$exists": True}})) != 0:
                 docs[...].apply(self._load_uri_to_image_tensor)
-
+            elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
+                docs[...].apply(lambda doc: self._load_image_tensor_from_redis(doc))
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
@@ -135,3 +147,12 @@ class SaveStream(Executor):
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
+
+    def _load_image_tensor_from_redis(self, doc: Document) -> Document:
+        image_key = doc.tags["redis"]
+        if self.rds.exists(image_key) != 0:
+            doc.blob = self.rds.get(image_key)
+            # Load bytes
+            return doc.convert_blob_to_image_tensor()
+        return doc
+
