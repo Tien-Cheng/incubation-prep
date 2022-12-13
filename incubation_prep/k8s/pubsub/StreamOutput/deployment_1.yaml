@@ -20,7 +20,7 @@ spec:
             claimName: data-volume
       containers:
       - name: pubsub-stream-output-1
-        image: tiencheng/pubsub-stream-output:1.1
+        image: tiencheng/pubsub-stream-output:1.2
         resources:
           limits:
             cpu: "2.0"

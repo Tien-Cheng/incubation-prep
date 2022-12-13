@@ -20,7 +20,7 @@ spec:
             claimName: data-volume
       containers:
       - name: pubsub-tracker-2
-        image: tiencheng/pubsub-tracker:1.1
+        image: tiencheng/pubsub-tracker:1.2
         resources:
           limits:
             cpu: "4.0"
