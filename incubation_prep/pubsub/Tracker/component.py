@@ -243,5 +243,6 @@ class Component(ABC):
             if self.rds.exists(image_key) != 0:
                 doc.blob = self.rds.get(image_key)
                 # Load bytes
-                return doc.convert_blob_to_image_tensor()
+                doc = doc.convert_blob_to_image_tensor()
+                doc.pop("blob")
         return doc
