@@ -108,7 +108,7 @@ class Client:
                     if nfs:
                         path = f"{output_path}/{frame_id}.jpg"
                         cv2.imwrite(path, frame)
-                        doc.uri = str(Path(path).resolve())
+                        doc.uri = path
                     elif redis:
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         frame = cv2.imencode(".jpg", frame)[1].tobytes()
@@ -157,27 +157,33 @@ class Client:
     ):
         print("Starting inference...")
         cap = cv2.VideoCapture(video_path)
-        for frame in self.read_frames(
-            cap,
-            video_path,
-            output_stream,
-            output_path,
-            send_image,
-            nfs_cache,
-            redis_cache,
-        ):
-            if broker == BrokerType.jina:
-                fire_and_forget(self.send_async_jina(frame, self.jina_client))
-                gc.collect()
-            elif broker == BrokerType.kafka:
-                self.send_async_kafka(frame, self.kafka_client, self.producer_topic)
-            elif broker == BrokerType.zmq:
-                fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
-                gc.collect()
-            elif broker == BrokerType.baseline:
-                self.send_sync_baseline(frame, self.baseline_pipe)
-            else:
-                raise NotImplementedError
+        if broker == BrokerType.kafka:
+            self.kafka_client.flush()
+        try:
+            for frame in self.read_frames(
+                cap,
+                video_path,
+                output_stream,
+                output_path,
+                send_image,
+                nfs_cache,
+                redis_cache,
+            ):
+                if broker == BrokerType.jina:
+                    fire_and_forget(self.send_async_jina(frame, self.jina_client))
+                    gc.collect()
+                elif broker == BrokerType.kafka:
+                    self.send_async_kafka(frame, self.kafka_client, self.producer_topic)
+                elif broker == BrokerType.zmq:
+                    fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
+                    gc.collect()
+                elif broker == BrokerType.baseline:
+                    self.send_sync_baseline(frame, self.baseline_pipe)
+                else:
+                    raise NotImplementedError
+        finally:
+            if broker == BrokerType.kafka:
+                self.kafka_client.flush()
 
 
 @click.command()
