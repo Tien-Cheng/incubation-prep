@@ -38,7 +38,9 @@ class YOLODetector(Component):
     def __call__(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # NOTE: model currently does not support batch inference
         # list only converts first dim to list, not recursively like tolist
-        frames: List[np.ndarray] = list(docs.tensors)
+        frames: List[np.ndarray] = list(docs.tensors or [])
+        if len(frames) == 0:
+            return docs
         # Either call Triton or run inference locally
         # assumption: image sent is RGB
         if self.is_triton:
