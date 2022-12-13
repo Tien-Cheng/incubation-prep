@@ -110,7 +110,6 @@ class Client:
                         cv2.imwrite(path, frame)
                         doc.uri = path
                     elif redis:
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         frame = cv2.imencode(".jpg", frame)[1].tobytes()
                         self.rds.set(frame_id, frame)
                         doc.tags["redis"] = frame_id
