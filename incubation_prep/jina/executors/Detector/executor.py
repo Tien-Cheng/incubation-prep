@@ -72,13 +72,14 @@ class YOLODetector(Executor):
     @requests
     def detect(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # Load tensors if necessary
-        send_tensors = True
-        if docs[...].tensors is None:
-            send_tensors = False
-            if len(docs[...].find({"uri": {"$exists": True}})) != 0:
-                docs[...].apply(self._load_uri_to_image_tensor)
-            elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
-                docs[...].apply(lambda doc: self._load_image_tensor_from_redis(doc))
+        blobs = docs.blobs
+        if len(docs.find({"uri": {"$exists": True}})) != 0:
+            docs.apply(self._load_uri_to_image_tensor)
+        elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
+            docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+        else:
+            docs.apply(lambda doc : doc.convert_blob_to_tensor())
+            
 
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
@@ -168,8 +169,9 @@ class YOLODetector(Executor):
                         if det.size()[0] != 0
                     ]
                 )
-            if not send_tensors:
-                docs[...].tensors = None
+            docs.tensors = None
+            if blobs is not None:
+                docs.blobs = blobs
             return docs
 
     @staticmethod

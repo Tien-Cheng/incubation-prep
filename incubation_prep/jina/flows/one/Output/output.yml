@@ -92,13 +92,14 @@ spec:
         envFrom:
         - configMapRef:
             name: output-configmap
+
         - configMapRef:
             name: kafka-common
         - configMapRef:
             name: component-common
         - configMapRef:
             name: non-triton
-        image: jina-stream-output:1.0
+        image: tiencheng/jina-stream-output:1.1
         imagePullPolicy: IfNotPresent
         name: executor
         ports:

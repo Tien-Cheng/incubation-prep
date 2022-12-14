@@ -98,7 +98,7 @@ spec:
             name: component-common
         - configMapRef:
             name: non-triton
-        image: jina-save-stream:1.0
+        image: tiencheng/jina-save-stream:1.1
         imagePullPolicy: IfNotPresent
         name: executor
         ports:

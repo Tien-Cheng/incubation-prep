@@ -108,12 +108,13 @@ class StreamOutput(Executor):
         :param docs: _description_
         :type docs: DocumentArray
         """
-        if docs[...].tensors is None:
-            if len(docs[...].find({"uri": {"$exists": True}})) != 0:
-                docs[...].apply(self._load_uri_to_image_tensor)
-            elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
-                docs[...].apply(lambda doc: self._load_image_tensor_from_redis(doc))
-
+        blobs = docs.blobs
+        if len(docs.find({"uri": {"$exists": True}})) != 0:
+            docs.apply(self._load_uri_to_image_tensor)
+        elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
+            docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+        else:
+            docs.apply(lambda doc : doc.convert_blob_to_tensor())
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
@@ -192,7 +193,10 @@ class StreamOutput(Executor):
                     else:
                         self.create_stream(output_stream)
                     pass
-                frame.pop("tensor")
+        docs.tensors = None
+        if blobs is not None:
+            docs.blobs = blobs
+        return docs
 
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
