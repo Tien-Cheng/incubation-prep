@@ -77,7 +77,7 @@ class YOLODetector(Executor):
             docs.apply(self._load_uri_to_image_tensor)
         elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
             docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
-        else:
+        elif blobs is not None:
             docs.apply(lambda doc : doc.convert_blob_to_image_tensor())
             
 
@@ -104,6 +104,8 @@ class YOLODetector(Executor):
             )
             self.metric_producer.poll(0)
             self.logger.warn("Dropped frame")
+        else:
+            self.last_frame[output_stream] = frame_id
         # NOTE: model currently does not support batch inference
         # list only converts first dim to list, not recursively like tolist
         with self.timer(
@@ -116,8 +118,7 @@ class YOLODetector(Executor):
                 "executor_id": self.executor_id,
             }
         ):
-            traversed_docs = docs
-            frames: List[np.ndarray] = list(traversed_docs.tensors)
+            frames: List[np.ndarray] = list(docs.tensors)
             # Either call Triton or run inference locally
             # assumption: image sent is RGB
             if self.is_triton:
@@ -154,7 +155,7 @@ class YOLODetector(Executor):
                         self.metrics_topic, value=json.dumps(metric).encode("utf-8")
                     )
                     self.metric_producer.poll(0)
-            for doc, dets in zip(traversed_docs, results.pred):
+            for doc, dets in zip(docs, results.pred):
                 # Make every det a match Document
                 doc.matches = DocumentArray(
                     [

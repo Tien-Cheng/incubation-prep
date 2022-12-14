@@ -70,7 +70,7 @@ class SaveStream(Executor):
             docs.apply(self._load_uri_to_image_tensor)
         elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
             docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
-        else:
+        elif blobs is not None:
             docs.apply(lambda doc : doc.convert_blob_to_image_tensor())
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
@@ -95,6 +95,8 @@ class SaveStream(Executor):
             )
             self.metric_producer.poll(0)
             self.logger.warn("Dropped frame")
+        else:
+            self.last_frame[output_stream] = frame_id
         with self.timer(
             metadata={
                 "frame_id": frame_id,
