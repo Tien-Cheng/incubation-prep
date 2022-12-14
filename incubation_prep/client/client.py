@@ -114,7 +114,7 @@ class Client:
                     frame = cv2.imencode(".jpg", frame)[1].tobytes()
                     doc.blob = frame
                 yield doc
-                print("Sent doc", doc.summary())
+                # print("Sent doc", doc.summary())
                 sleep(1 / fps)
         finally:
             cap.release()
@@ -168,12 +168,12 @@ class Client:
             ):
                 if broker == BrokerType.jina:
                     fire_and_forget(self.send_async_jina(frame, self.jina_client))
-                    gc.collect()
+                    # gc.collect()
                 elif broker == BrokerType.kafka:
                     self.send_async_kafka(frame, self.kafka_client, self.producer_topic)
                 elif broker == BrokerType.zmq:
                     fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
-                    gc.collect()
+                    # gc.collect()
                 elif broker == BrokerType.baseline:
                     self.send_sync_baseline(frame, self.baseline_pipe)
                 else:
