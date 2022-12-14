@@ -114,7 +114,7 @@ class StreamOutput(Executor):
         elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
             docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
         else:
-            docs.apply(lambda doc : doc.convert_blob_to_tensor())
+            docs.apply(lambda doc : doc.convert_blob_to_image_tensor())
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
