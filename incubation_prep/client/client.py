@@ -130,6 +130,11 @@ class Client:
     @staticmethod
     def send_async_kafka(frame: Document, producer: Producer, topic: str):
         serialized_docarray = DocumentArray([frame]).to_bytes()
+        # TODO: Add a callback here, log the time, msg
+        # we want to find out if frames are being sent
+        # properly to Kafka
+        # so ensure FPS is as expected, and how many
+        # frames are being sent.
         producer.produce(topic, value=serialized_docarray)
         producer.poll(0)
 
