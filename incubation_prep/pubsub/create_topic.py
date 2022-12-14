@@ -15,5 +15,5 @@ except:
     pass
 sleep(5)
 client.create_topics(
-    [NewTopic(name, 1, 1) for name in topics]
+    [NewTopic(name, 3, 1) for name in topics]
 )

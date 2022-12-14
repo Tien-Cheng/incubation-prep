@@ -114,9 +114,10 @@ class Client:
                         self.rds.set(frame_id, frame)
                         doc.tags["redis"] = frame_id
                 else:
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    doc.tensor = np.array(frame)
+                    frame = cv2.imencode(".jpg", frame)[1].tobytes()
+                    doc.blob = frame
                 yield doc
+                print("Sent doc", doc.summary())
                 sleep(1 / fps)
         finally:
             cap.release()

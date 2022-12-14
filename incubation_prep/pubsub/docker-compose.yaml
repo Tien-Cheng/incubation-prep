@@ -12,7 +12,7 @@ services:
               count: 1
               capabilities: [gpu]
     volumes:
-      - $PWD/data:/data
+      - $PWD/client/data:/data
   pubsub-save-frames:
     image: pubsub-save-frames:1.2
     network_mode: "host"        
@@ -24,7 +24,7 @@ services:
               count: 1
               capabilities: [gpu]
     volumes:
-      - $PWD/data:/data
+      - $PWD/client/data:/data
   pubsub-stream-output:
     image: pubsub-stream-output:1.2
     network_mode: "host"        
@@ -36,7 +36,7 @@ services:
               count: 1
               capabilities: [gpu]
     volumes:
-      - $PWD/data:/data
+      - $PWD/client/data:/data
   pubsub-tracker:
     image: pubsub-tracker:1.2
     network_mode: "host"        
@@ -48,4 +48,4 @@ services:
               count: 1
               capabilities: [gpu]
     volumes:
-      - $PWD/data:/data
+      - $PWD/client/data:/data

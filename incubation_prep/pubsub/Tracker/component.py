@@ -7,6 +7,7 @@ from enum import Enum
 from logging import Logger
 from os import getenv
 from typing import Dict, Optional
+from copy import copy
 
 import redis
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
@@ -127,7 +128,7 @@ class Component(ABC):
                     )
                 if len(frame_docs) == 0:
                     continue  # skip frames if pod not meant to receive them
-                result = self._call_main(frame_docs, frame_docs.tensors is not None)
+                result = self._call_main(frame_docs, frame_docs.blobs is not None)
                 # Process Results
                 if self.producer:
                     self.producer.zmq_socket.send(result.to_bytes())
@@ -164,7 +165,7 @@ class Component(ABC):
                 if len(frame_docs) == 0:
                     continue  # skip frames if pod not meant to receive them
                 # Check that frame contains tensors
-                result = self._call_main(frame_docs, frame_docs.tensors is not None)
+                result = self._call_main(frame_docs, frame_docs.blobs is not None)
                 # Process Results
                 if self.produce_topic:
                     self.producer.produce(self.produce_topic, value=result.to_bytes())
@@ -183,9 +184,16 @@ class Component(ABC):
     ) -> DocumentArray:
         if not send_tensors:
             if len(docs[...].find({"uri": {"$exists": True}})) != 0:
-                docs[...].apply(self._load_uri_to_image_tensor)
+                docs.apply(self._load_uri_to_image_tensor)
             elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
-                docs[...].apply(lambda doc: self._load_image_tensor_from_redis(doc))
+                docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+        else:
+            # Check if blob exists
+            # Load tensor from blob to allow for better compression
+            blobs = docs.blobs
+            docs.apply(self._load_image_tensor_from_blob)
+            # for doc in docs:
+            #     doc.convert_blob_to_image_tensor()
 
         # NOTE: Assume only 1 doc inside docarray
         # Check for dropped frames
@@ -226,8 +234,12 @@ class Component(ABC):
             }
         ):
             docs = self.__call__(docs)
-        if not send_tensors:
-            docs[...].tensors = None
+        # No matter what, remove the tensors
+        # even if sending frame over kafka, I want
+        # to store it in blob as jpeg (for compression)
+        # so I don't need the tensor
+        docs.tensors = None
+        docs.blobs = blobs
         return docs
 
     @staticmethod
@@ -237,6 +249,12 @@ class Component(ABC):
             # NOTE: Testing shows not necessary and actually breaks stuff
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
+        return doc
+
+    @staticmethod
+    def _load_image_tensor_from_blob(doc: Document) -> Document:
+        if doc.blob:
+            doc = doc.convert_blob_to_image_tensor()
         return doc
 
     def _load_image_tensor_from_redis(self, doc: Document) -> Document:
