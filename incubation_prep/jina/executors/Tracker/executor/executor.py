@@ -116,6 +116,7 @@ class ObjectTracker(Executor):
                     tracks = self.trackers[output_stream].update(dets, None)
                 # Update matches using tracks
                 frame.matches = self._update_dets(tracks)
+                
             docs.tensors = None
             if blobs is not None:
                 docs.blobs = blobs
@@ -146,7 +147,7 @@ class ObjectTracker(Executor):
                 results.append(
                     Document(
                         tags={
-                            "bbox": track[:4],
+                            "bbox": list(track[:4]),
                             "confidence": track[6],
                             "class_name": track[5],
                             "track_id": track[4],
