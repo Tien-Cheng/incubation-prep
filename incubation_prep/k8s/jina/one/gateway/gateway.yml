@@ -73,7 +73,7 @@ spec:
         - --port
         - '4091'
         - --port-monitoring
-        - '65175'
+        - '62773'
         command:
         - jina
         env:

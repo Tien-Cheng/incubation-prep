@@ -66,6 +66,8 @@ spec:
         - default
         - --uses
         - config.yml
+        - --gpus
+        - '1'
         - --port
         - '8080'
         - --port-monitoring
@@ -103,15 +105,6 @@ spec:
         - configMapRef:
             name: non-triton
         image: tiencheng/jina-detector:1.1
-        resources:
-          limits:
-            cpu: "4.0"
-            memory: "8Gi"
-            nvidia.com/gpu: 1
-          requests:
-            cpu: "2.0"
-            memory: "4Gi"
-            nvidia.com/gpu: 1
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
@@ -126,3 +119,8 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: "4.0"
+            memory: "8Gi"
+            nvidia.com/gpu: '1'

@@ -100,13 +100,6 @@ spec:
         - configMapRef:
             name: non-triton
         image: tiencheng/jina-tracker:1.1
-        resources:
-          limits:
-            cpu: "4.0"
-            memory: "8Gi"
-          requests:
-            cpu: "4.0"
-            memory: "4Gi"
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
@@ -121,3 +114,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: "4.0"
+            memory: "8Gi"

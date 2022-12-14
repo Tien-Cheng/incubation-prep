@@ -96,7 +96,6 @@ spec:
         envFrom:
         - configMapRef:
             name: output-configmap
-
         - configMapRef:
             name: kafka-common
         - configMapRef:
@@ -104,13 +103,6 @@ spec:
         - configMapRef:
             name: non-triton
         image: tiencheng/jina-stream-output:1.1
-        resources:
-          limits:
-            cpu: "2.0"
-            memory: "4Gi"
-          requests:
-            cpu: "1.0"
-            memory: "2Gi"
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
@@ -125,3 +117,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: "2.0"
+            memory: "4Gi"
