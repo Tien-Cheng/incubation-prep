@@ -180,20 +180,22 @@ class Component(ABC):
             self.consumer.close()
 
     def _call_main(
-        self, docs: DocumentArray, send_tensors: bool = True
+        self, docs: DocumentArray, send_tensors: bool = False # TODO: Remove from client side to avoid error
     ) -> DocumentArray:
-        if not send_tensors:
+        blobs = docs.blobs
+        if not bool(blobs[0]):
+            blobs = None # For some reason if blobs is none, will be [b""]
+        # assert blobs is None, f"TEST REDIS WORKS: {blobs}"
+        if blobs is None:
+            # tmp1 = False
             if len(docs[...].find({"uri": {"$exists": True}})) != 0:
                 docs.apply(self._load_uri_to_image_tensor)
             elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
+                # tmp1 = True
                 docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+            # assert tmp1, "TEST APPLY"
         else:
-            # Check if blob exists
-            # Load tensor from blob to allow for better compression
-            blobs = docs.blobs
             docs.apply(self._load_image_tensor_from_blob)
-            # for doc in docs:
-            #     doc.convert_blob_to_image_tensor()
 
         # NOTE: Assume only 1 doc inside docarray
         # Check for dropped frames
@@ -239,8 +241,7 @@ class Component(ABC):
         # to store it in blob as jpeg (for compression)
         # so I don't need the tensor
         docs.tensors = None
-        if send_tensors:
-            docs.blobs = blobs
+        docs.blobs = blobs
         return docs
 
     @staticmethod
@@ -265,5 +266,8 @@ class Component(ABC):
                 doc.blob = self.rds.get(image_key)
                 # Load bytes
                 doc = doc.convert_blob_to_image_tensor()
-                doc.pop("blob")
+                assert doc.tensor is not None, "Redis converts successfully"
+
+        else:
+            self.logger.error("Failed to load from redis")
         return doc

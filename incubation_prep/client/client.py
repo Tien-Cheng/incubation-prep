@@ -102,17 +102,14 @@ class Client:
                         "output_stream": output_stream,
                     },
                 )
-                if not send_tensor:
-                    # Save to NFS or Redis, and put URI in document
-                    # Save to NFS
-                    if nfs:
-                        path = f"{output_path}/{frame_id}.jpg"
-                        cv2.imwrite(path, frame)
-                        doc.uri = path
-                    elif redis:
-                        frame = cv2.imencode(".jpg", frame)[1].tobytes()
-                        self.rds.set(frame_id, frame)
-                        doc.tags["redis"] = frame_id
+                if nfs:
+                    path = f"{output_path}/{frame_id}.jpg"
+                    cv2.imwrite(path, frame)
+                    doc.uri = path
+                elif redis:
+                    frame = cv2.imencode(".jpg", frame)[1].tobytes()
+                    self.rds.set(frame_id, frame)
+                    doc.tags["redis"] = frame_id
                 else:
                     frame = cv2.imencode(".jpg", frame)[1].tobytes()
                     doc.blob = frame
