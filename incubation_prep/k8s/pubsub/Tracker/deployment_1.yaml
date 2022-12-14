@@ -25,9 +25,11 @@ spec:
           limits:
             cpu: "4.0"
             memory: "8Gi"
+            nvidia.com/gpu: '1'
           requests:
             cpu: "4.0"
             memory: "4Gi"
+            nvidia.com/gpu: '1'
         # Add the following env section
         env:
         - name: BROKER

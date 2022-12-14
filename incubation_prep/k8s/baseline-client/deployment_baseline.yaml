@@ -1,45 +1,42 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pubsub-detector-1
+  name: client
   labels:
-    app: pubsub-detector-1
+    app: client
 spec:
-  replicas: 1 # can just scale this up
+  replicas: 1
   selector:
     matchLabels:
-      app: pubsub-detector-1
+      app: client
   template:
     metadata:
       labels:
-        app: pubsub-detector-1
+        app: client
     spec:
       volumes:
         - name: data-volume
           persistentVolumeClaim:
             claimName: data-volume
       containers:
-      - name: pubsub-detector-1
-        image: tiencheng/pubsub-detector:1.3
+      - name: client
+        image: tiencheng/test-client:1.5
+        ports:
+        - containerPort: 80
+        command: ["sleep"]
+        args: ["infinity"]
         resources:
           limits:
-            cpu: "4.0"
+            # Need GPU as this client directly runs baseline code
+            # Limit the application to using one GPU
+            cpu: "16.0"
             memory: "8Gi"
             nvidia.com/gpu: 1
           requests:
-            cpu: "2.0"
-            memory: "4Gi"
+            # Request 1 gpu
+            cpu: "16.0"
+            memory: "8Gi"
             nvidia.com/gpu: 1
-        # Add the following env section
-        env:
-        - name: BROKER
-          value: kafka
-        - name: KAFKA_CONSUMER_GROUP
-          value: dets
-        - name: KAFKA_CONSUME_TOPIC
-          value: frames
-        - name: KAFKA_PRODUCE_TOPIC
-          value: dets
         envFrom:
           - configMapRef:
               name: kafka-common
@@ -50,5 +47,5 @@ spec:
           - configMapRef:
               name: redis-common
         volumeMounts:
-          - mountPath: /data
-            name: data-volume
+        - name: data-volume
+          mountPath: /data

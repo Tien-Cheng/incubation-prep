@@ -5,5 +5,5 @@ metadata:
   name: kafka-common
 data:
   # Add key-value pairs for your configuration data here
-  KAFKA_ADDRESS: <TODO>
+  KAFKA_ADDRESS: 192.168.168.107:9092
   KAFKA_METRICS_TOPIC: metrics
