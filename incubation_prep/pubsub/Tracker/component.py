@@ -239,7 +239,8 @@ class Component(ABC):
         # to store it in blob as jpeg (for compression)
         # so I don't need the tensor
         docs.tensors = None
-        docs.blobs = blobs
+        if send_tensors:
+            docs.blobs = blobs
         return docs
 
     @staticmethod
