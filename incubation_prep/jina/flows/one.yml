@@ -6,6 +6,7 @@ with:
 executors:
   - name: Detector
     uses: docker://tiencheng/jina-detector:1.1
+    gpus: all
     uses_with:
       weights_or_url: ${{ ENV.YOLO_WEIGHTS }}
       device: ${{ ENV.YOLO_DEVICE }}

@@ -7,6 +7,7 @@ executors:
   - name: Detector
     uses: docker://jina-detector:1.0
     replicas: 2
+    gpus: all
     uses_with:
       weights_or_url: ${{ ENV.YOLO_WEIGHTS }}
       device: ${{ ENV.YOLO_DEVICE }}
