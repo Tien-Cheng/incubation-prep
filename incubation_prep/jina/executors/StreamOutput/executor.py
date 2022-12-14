@@ -10,7 +10,8 @@ from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 from vidgear.gears import NetGear, WriteGear
 
-from jina import Document, DocumentArray, Executor, requests
+from jina import Executor, requests
+from docarray import DocumentArray, Document
 
 
 class StreamOutput(Executor):

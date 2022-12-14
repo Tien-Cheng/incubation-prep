@@ -9,7 +9,8 @@ import redis
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 
-from jina import Document, DocumentArray, Executor, requests
+from jina import Executor, requests
+from docarray import Document, DocumentArray
 
 
 class SaveStream(Executor):

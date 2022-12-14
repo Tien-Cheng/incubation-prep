@@ -9,7 +9,8 @@ import numpy as np
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 
-from jina import Document, DocumentArray, Executor, requests
+from docarray import Document, DocumentArray
+from jina import Executor, requests
 from bytetracker import BYTETracker
 
 
