@@ -95,7 +95,7 @@ class SaveStream(Executor):
                 ).encode("utf-8"),
             )
             self.metric_producer.poll(0)
-            self.logger.warn("Dropped frame")
+            self.logger.warning("Dropped frame")
         else:
             self.last_frame[output_stream] = frame_id
         with self.timer(
