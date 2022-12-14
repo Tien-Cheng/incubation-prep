@@ -211,6 +211,8 @@ class Component(ABC):
             )
             self.metric_producer.poll(0)
             self.logger.warn("Dropped frame")
+        else:
+            self.last_frame[output_stream] = frame_id
 
         with self.timer(
             metadata={
