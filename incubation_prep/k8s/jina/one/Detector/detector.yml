@@ -51,6 +51,10 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
       containers:
       - args:
         - executor
@@ -99,6 +103,15 @@ spec:
         - configMapRef:
             name: non-triton
         image: tiencheng/jina-detector:1.1
+        resources:
+          limits:
+            cpu: "4.0"
+            memory: "8Gi"
+            nvidia.com/gpu: 1
+          requests:
+            cpu: "2.0"
+            memory: "4Gi"
+            nvidia.com/gpu: 1
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
