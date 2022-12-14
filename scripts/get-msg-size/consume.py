@@ -12,7 +12,7 @@ def convert_size(size_bytes):
    return "%s %s" % (s, size_name[i])
 
 consumer = Consumer({
-    "bootstrap.servers": "127.0.0.1:9092",
+    "bootstrap.servers": "192.168.168.107:9092",
     "group.id": "frames",
     "client.id": "consumer_1",
     "auto.offset.reset": "smallest",
