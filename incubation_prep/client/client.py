@@ -71,6 +71,7 @@ class Client:
             self.rds = redis.Redis(**redis_config)
         self.producer_topic = producer_topic
         self.previous_frame_time = perf_counter()
+        self.start_frame_times = {} # map frame id to start frame time
 
     def read_frames(
         self,
@@ -94,7 +95,7 @@ class Client:
             for frame_count in count():
                 start = perf_counter() 
                 success, frame = cap.read()
-                print("Time to read frame", perf_counter() - start)
+                # print("Time to read frame", perf_counter() - start)
                 frame_id = f"vid-{filename}-{output_stream}-frame-{frame_count}"
                 if not success:
                     print("Error reading frame")
@@ -107,7 +108,7 @@ class Client:
                         "output_stream": output_stream,
                     },
                 )
-                print("Time to create doc", perf_counter() - start)
+                # print("Time to create doc", perf_counter() - start)
                 start = perf_counter()
                 if nfs:
                     path = f"{output_path}/{frame_id}.jpg"
@@ -120,10 +121,10 @@ class Client:
                 else:
                     frame = cv2.imencode(".jpg", frame)[1].tobytes()
                     doc.blob = frame
-                print("Time to encode", perf_counter() - start)
+                # print("Time to encode", perf_counter() - start)
                 yield doc
                 # print("Sent doc", doc.summary())
-                # sleep(1 / fps)
+                sleep(1 / fps)
         finally:
             cap.release()
         return
@@ -138,16 +139,18 @@ class Client:
     def send_async_kafka(self, frame: Document, producer: Producer, topic: str):
         start = perf_counter()
         serialized_docarray = DocumentArray([frame]).to_bytes()
-        print("Time to serialize", perf_counter() - start)
+        # print("Time to serialize", perf_counter() - start)
         # TODO: Add a callback here, log the time, msg
         # we want to find out if frames are being sent
         # properly to Kafka
         # so ensure FPS is as expected, and how many
         # frames are being sent.
+
+        self.start_frame_times[frame.tags["frame_id"]] = start
         producer.produce(
             topic,
             value=serialized_docarray,
-            on_delivery=lambda err, msg: self.on_message(err),
+            on_delivery=lambda err, msg: self.on_message(err, msg),
         )
         producer.poll(0)
 
@@ -160,11 +163,14 @@ class Client:
     def send_sync_baseline(frame: Document, pipe: BaselinePipeline):
         pipe(DocumentArray([frame]))
 
-    def on_message(self, err: str):
+    def on_message(self, err: str, message: Message):
         time = perf_counter()
-        print(f"Time to receive frame: {time - self.previous_frame_time}")
-        fps = 1 / (time - self.previous_frame_time)
-        self.previous_frame_time = time
+        data = DocumentArray.from_bytes(message.value())
+        frame_id = data[0].tags["frame_id"]
+    
+        print(f"Time to receive frame: {time - self.start_frame_times[frame_id]}")
+        fps = 1 / (time - self.start_frame_times[frame_id])
+        # self.previous_frame_time = time
         print(f"FPS: {fps}, Expected FPS: {self.video_fps}, Error: {err}")
 
     def infer(
@@ -239,7 +245,7 @@ def main(
 
     client = Client(
         jina_config={
-            "host": getenv("JINA_HOSTNAME", "0.0.0.0"),
+            "host": getenv("JINA_HOSTNAME", "10.244.1.188"),
             "port": int(getenv("JINA_PORT", 4091)),
         },
         kafka_config={
