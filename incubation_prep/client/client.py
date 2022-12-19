@@ -54,7 +54,7 @@ class Client:
         self.zmq_client = None
         self.rds = None
         if jina_config is not None:
-            self.jina_client = JinaClient(asyncio=True, **jina_config)
+            self.jina_client = JinaClient(asyncio=False, **jina_config)
             self.jina_config = jina_config
         if kafka_config is not None:
             self.kafka_client = Producer(kafka_config)
@@ -93,13 +93,13 @@ class Client:
             if output_path is not None:
                 Path(output_path).mkdir(parents=True, exist_ok=True)
             for frame_count in count():
-                start = perf_counter() 
+                # start = perf_counter() 
                 success, frame = cap.read()
                 # print("Time to read frame", perf_counter() - start)
                 frame_id = f"vid-{filename}-{output_stream}-frame-{frame_count}"
                 if not success:
                     print("Error reading frame")
-                start = perf_counter()
+                # start = perf_counter()
                 doc = Document(
                     id=frame_id,
                     tags={
@@ -109,7 +109,7 @@ class Client:
                     },
                 )
                 # print("Time to create doc", perf_counter() - start)
-                start = perf_counter()
+                # start = perf_counter()
                 if nfs:
                     path = f"{output_path}/{frame_id}.jpg"
                     cv2.imwrite(path, frame)
@@ -187,31 +187,38 @@ class Client:
         cap = cv2.VideoCapture(video_path)
         if broker == BrokerType.kafka:
             self.kafka_client.flush()
-        try:
-            for frame in self.read_frames(
-                cap,
-                video_path,
-                output_stream,
-                output_path,
-                send_image,
-                nfs_cache,
-                redis_cache,
-            ):
-                if broker == BrokerType.jina:
-                    fire_and_forget(self.send_async_jina(frame, self.jina_client))
-                    # gc.collect()
-                elif broker == BrokerType.kafka:
-                    self.send_async_kafka(frame, self.kafka_client, self.producer_topic)
-                elif broker == BrokerType.zmq:
-                    fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
-                    # gc.collect()
-                elif broker == BrokerType.baseline:
-                    self.send_sync_baseline(frame, self.baseline_pipe)
-                else:
-                    raise NotImplementedError
-        finally:
-            if broker == BrokerType.kafka:
-                self.kafka_client.flush()
+        if broker == BrokerType.jina:
+            generator =  self.read_frames(cap, video_path, output_stream, output_path, send_image, nfs_cache, redis_cache)
+
+            self.jina_client.post(
+                on="/infer", inputs=generator, stream=True, request_size=1, return_responses=True
+            )
+        else:
+            try:
+                for frame in self.read_frames(
+                    cap,
+                    video_path,
+                    output_stream,
+                    output_path,
+                    send_image,
+                    nfs_cache,
+                    redis_cache,
+                ):
+                    # if broker == BrokerType.jina:
+                    #     fire_and_forget(self.send_async_jina(frame, self.jina_client))
+                    #     # gc.collect()
+                    if broker == BrokerType.kafka:
+                        self.send_async_kafka(frame, self.kafka_client, self.producer_topic)
+                    elif broker == BrokerType.zmq:
+                        fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
+                        # gc.collect()
+                    elif broker == BrokerType.baseline:
+                        self.send_sync_baseline(frame, self.baseline_pipe)
+                    else:
+                        raise NotImplementedError
+            finally:
+                if broker == BrokerType.kafka:
+                    self.kafka_client.flush()
 
 
 @click.command()
@@ -245,7 +252,7 @@ def main(
 
     client = Client(
         jina_config={
-            "host": getenv("JINA_HOSTNAME", "10.244.1.188"),
+            "host": getenv("JINA_HOSTNAME", "0.0.0.0"), # 10.244.1.188
             "port": int(getenv("JINA_PORT", 4091)),
         },
         kafka_config={
