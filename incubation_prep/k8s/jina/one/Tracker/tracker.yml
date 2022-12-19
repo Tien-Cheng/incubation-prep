@@ -51,6 +51,7 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
+      nodeName: worker3-ge76-raider-11uh
       volumes:
         - name: data-volume
           persistentVolumeClaim:

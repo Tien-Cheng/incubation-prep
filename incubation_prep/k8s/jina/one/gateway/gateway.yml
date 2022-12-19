@@ -51,6 +51,7 @@ spec:
         pod_type: GATEWAY
         shard_id: ''
     spec:
+      nodeName: worker1-ge76-raider-11uh
       containers:
       - args:
         - gateway

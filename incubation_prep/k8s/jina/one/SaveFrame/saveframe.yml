@@ -31,6 +31,7 @@ metadata:
   name: saveframe
   namespace: default
 spec:
+
   replicas: 1
   selector:
     matchLabels:
@@ -51,6 +52,7 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
+      nodeName: worker2-ge76-raider-11uh
       volumes:
         - name: data-volume
           persistentVolumeClaim:
