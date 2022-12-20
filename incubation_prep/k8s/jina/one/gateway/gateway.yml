@@ -51,7 +51,16 @@ spec:
         pod_type: GATEWAY
         shard_id: ''
     spec:
-      nodeName: worker1-ge76-raider-11uh
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker1-ge76-raider-11uh
       containers:
       - args:
         - gateway
@@ -60,7 +69,7 @@ spec:
         - --k8s-namespace
         - default
         - --prefetch
-        - '5'
+        - '25'
         - --expose-endpoints
         - '{}'
         - --uses
@@ -74,7 +83,15 @@ spec:
         - --port
         - '4091'
         - --port-monitoring
-        - '62773'
+        - '30090'
+        - --tracing
+        - --traces-exporter-host
+        - '192.168.168.107'
+        - --traces-exporter-port
+        - '4317'
+        - --monitoring
+        - --metrics-exporter-port
+        - '4317'
         command:
         - jina
         env:

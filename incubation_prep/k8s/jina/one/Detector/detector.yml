@@ -31,8 +31,7 @@ metadata:
   name: detector
   namespace: default
 spec:
-
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: detector
@@ -52,7 +51,17 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
-      nodeName: worker1-ge76-raider-11uh
+      # nodeName: worker1-ge76-raider-11uh
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker1-ge76-raider-11uh
       volumes:
         - name: data-volume
           persistentVolumeClaim:
@@ -73,7 +82,13 @@ spec:
         - --port
         - '8080'
         - --port-monitoring
-        - '9090'
+        - '30090'
+        - --tracing
+        - --traces-exporter-host
+        - '192.168.168.107'
+        - --traces-exporter-port
+        - '4317'
+        - --monitoring
         - --uses-metas
         - '{}'
         - --uses-with
@@ -123,6 +138,7 @@ spec:
           timeoutSeconds: 10
         resources:
           limits:
-            cpu: "4.0"
-            memory: "8Gi"
             nvidia.com/gpu: '1'
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume

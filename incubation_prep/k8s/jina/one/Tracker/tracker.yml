@@ -51,7 +51,16 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
-      nodeName: worker3-ge76-raider-11uh
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker2-ge76-raider-11uh
       volumes:
         - name: data-volume
           persistentVolumeClaim:
@@ -70,7 +79,13 @@ spec:
         - --port
         - '8080'
         - --port-monitoring
-        - '9090'
+        - '30090'
+        - --tracing
+        - --traces-exporter-host
+        - '192.168.168.107'
+        - --traces-exporter-port
+        - '4317'
+        - --monitoring
         - --uses-metas
         - '{}'
         - --native
@@ -115,7 +130,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 10
-        resources:
-          limits:
-            cpu: "4.0"
-            memory: "8Gi"
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume
