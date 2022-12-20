@@ -7,6 +7,8 @@ from os import getenv
 from pathlib import Path
 from time import sleep, perf_counter
 from typing import Dict, Optional
+from json import dumps
+from datetime import datetime
 
 import redis
 import click
@@ -73,6 +75,10 @@ class Client:
         self.previous_frame_time = perf_counter()
         self.start_frame_times = {} # map frame id to start frame time
 
+        self.metrics_producer = Producer({
+            "bootstrap.servers": getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+        })
+
     def read_frames(
         self,
         cap: cv2.VideoCapture,
@@ -92,8 +98,9 @@ class Client:
             filename = Path(video_path).stem
             if output_path is not None:
                 Path(output_path).mkdir(parents=True, exist_ok=True)
+            print("Starting. This should be seen only once.")
             for frame_count in count():
-                # start = perf_counter() 
+                start = perf_counter() 
                 success, frame = cap.read()
                 # print("Time to read frame", perf_counter() - start)
                 frame_id = f"vid-{filename}-{output_stream}-frame-{frame_count}"
@@ -122,10 +129,35 @@ class Client:
                     frame = cv2.imencode(".jpg", frame)[1].tobytes()
                     doc.blob = frame
                 # print("Time to encode", perf_counter() - start)
+                self.metrics_producer.produce("metrics", value=dumps({
+                    "type" : "client_yield_time",
+                    "timestamp" : datetime.now().isoformat(),
+                    "executor" : "client",
+                    "executor_id" : "client",
+                    'value' : perf_counter() - start
+                }).encode("utf-8"))
                 yield doc
+                start = perf_counter()
+                self.metrics_producer.produce("metrics", value=dumps({
+                    "type" : "start_processing",
+                    "event" : "overall",
+                    "timestamp" : datetime.now().isoformat(),
+                    "executor" : "client",
+                    "executor_id" : "client"
+                }).encode("utf-8"))
+                self.metrics_producer.poll(0)
+                self.metrics_producer.produce("metrics", value=dumps({
+                    "type" : "client_metric_produce_time",
+                    "timestamp" : datetime.now().isoformat(),
+                    "executor" : "client",
+                    "executor_id" : "client",
+                    'value' : perf_counter() - start
+                }).encode("utf-8"))
+                self.metrics_producer.poll(0)
                 # print("Sent doc", doc.summary())
-                sleep(1 / fps)
+                # sleep(1 / fps)
         finally:
+            print("Releasing video")
             cap.release()
         return
 
@@ -204,10 +236,10 @@ class Client:
                     nfs_cache,
                     redis_cache,
                 ):
-                    # if broker == BrokerType.jina:
-                    #     fire_and_forget(self.send_async_jina(frame, self.jina_client))
-                    #     # gc.collect()
-                    if broker == BrokerType.kafka:
+                    if broker == BrokerType.jina:
+                        fire_and_forget(self.send_async_jina(frame, self.jina_client))
+                        # gc.collect()
+                    elif broker == BrokerType.kafka:
                         self.send_async_kafka(frame, self.kafka_client, self.producer_topic)
                     elif broker == BrokerType.zmq:
                         fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
@@ -249,11 +281,13 @@ def main(
         raise ValueError("Cannot have both redis and nfs enabled at same time")
     if not send_image and not output_path and nfs:
         raise ValueError("Don't know where NFS is!")
-
     client = Client(
         jina_config={
-            "host": getenv("JINA_HOSTNAME", "0.0.0.0"), # 10.244.1.188
+            "host": getenv("JINA_HOSTNAME", "10.101.205.251"),
             "port": int(getenv("JINA_PORT", 4091)),
+            "tracing" : True,
+            "traces_exporter_host" : "192.168.168.107",
+            "traces_exporter_port" : 4317
         },
         kafka_config={
             "bootstrap.servers": getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
