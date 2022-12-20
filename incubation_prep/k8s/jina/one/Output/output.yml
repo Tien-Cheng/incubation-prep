@@ -93,6 +93,7 @@ spec:
         - '{"address": "$OUTPUT_ADDRESS", "port": "$OUTPUT_PORT", "height": "$OUTPUT_HEIGHT",
           "width": "$OUTPUT_WIDTH"}'
         - --native
+        - --floating
         command:
         - jina
         env:

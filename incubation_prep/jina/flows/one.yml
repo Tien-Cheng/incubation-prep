@@ -22,6 +22,7 @@ executors:
       width: ${{ ENV.OUTPUT_WIDTH }}
   - name: Output
     uses: docker://tiencheng/jina-stream-output:1.1
+    floating: true
     uses_with:
       address: ${{ ENV.OUTPUT_ADDRESS }}
       port: ${{ ENV.OUTPUT_PORT }}

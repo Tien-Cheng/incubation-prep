@@ -76,7 +76,7 @@ spec:
         - GRPCGateway
         - --graph-description
         - '{"Detector": ["Tracker"], "start-gateway": ["Detector"], "Tracker": ["SaveFrame",
-          "Output"], "SaveFrame": [], "Output": ["end-gateway"]}'
+          "Output", "end-gateway"], "SaveFrame": [], "Output": []}'
         - --deployments-addresses
         - '{"Detector": ["grpc://detector.default.svc:8080"], "Tracker": ["grpc://tracker.default.svc:8080"],
           "SaveFrame": ["grpc://saveframe.default.svc:8080"], "Output": ["grpc://output.default.svc:8080"]}'
