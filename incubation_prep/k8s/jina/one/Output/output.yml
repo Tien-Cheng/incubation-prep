@@ -120,7 +120,9 @@ spec:
             name: component-common
         - configMapRef:
             name: non-triton
-        image: tiencheng/jina-stream-output:1.1
+        - configMapRef:
+            name: redis-common
+        image: tiencheng/jina-stream-output:1.2
         imagePullPolicy: IfNotPresent
         name: executor
         ports:

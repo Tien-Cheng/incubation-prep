@@ -104,7 +104,7 @@ spec:
             name: component-common
         - configMapRef:
             name: non-triton
-        image: tiencheng/jina-detector:1.1
+        image: tiencheng/jina-detector:1.2
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
