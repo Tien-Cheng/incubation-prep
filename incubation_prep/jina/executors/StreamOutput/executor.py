@@ -43,7 +43,7 @@ class StreamOutput(Executor):
                 "-preset:v": "ultrafast",
                 "-tune": "zerolatency",
                 "-f": "rtsp",
-                "-rtsp_transport": "udp",
+                "-rtsp_transport": "tcp",
             }
         self.ffmpeg_config = ffmpeg_config
         if zmq_config is None:
