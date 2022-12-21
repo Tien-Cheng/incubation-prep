@@ -299,7 +299,7 @@ def main(
         raise ValueError("Don't know where NFS is!")
     client = Client(
         jina_config={
-            "host": getenv("JINA_HOSTNAME", "0.0.0.0"), # 10.101.205.251
+            "host": getenv("JINA_HOSTNAME", "10.101.205.251"), # 10.101.205.251
             "port": int(getenv("JINA_PORT", 4091)),
             "tracing" : True,
             "traces_exporter_host" : "192.168.168.107",
