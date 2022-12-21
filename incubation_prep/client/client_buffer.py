@@ -177,7 +177,7 @@ class Client:
                 buffer.put(doc)
                 if frame_count == 1:
                     encode_process.start()
-                if frame_count == 5:
+                if frame_count == 100:
                     send_proc.start()
         except Exception as e:
             print("Error in populate frame buffer", e)
@@ -233,6 +233,7 @@ class Client:
                     ).encode("utf-8"),
                 )
                 yield doc
+                sleep(0.5)
                 start = perf_counter()
                 self.metrics_producer.produce(
                     "metrics",
@@ -379,7 +380,7 @@ def main(
         raise ValueError("Don't know where NFS is!")
     client = Client(
         jina_config={
-            "host": getenv("JINA_HOSTNAME", "0.0.0.0"),  # 10.101.205.251
+            "host": getenv("JINA_HOSTNAME", "10.101.205.251"), # 
             "port": int(getenv("JINA_PORT", 4091)),
             "tracing": True,
             "traces_exporter_host": "192.168.168.107",
