@@ -361,7 +361,7 @@ class Client:
 @click.option("--send-image/--no-send-image", default=True)
 @click.option("--nfs", is_flag=True)
 @click.option("--redis", is_flag=True)
-@click.option("--numpy-encode", is_flag=True)
+@click.option("--encode-numpy", is_flag=True)
 @click.option("--load-baseline", is_flag=True)
 def main(
     broker: BrokerType,
