@@ -2,10 +2,12 @@ import json
 from datetime import datetime
 from os import getenv
 from typing import Dict, Optional, Union
+from io import BytesIO
 
 import redis
 import cv2
 import numpy as np
+
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 from vidgear.gears import NetGear, WriteGear
@@ -41,7 +43,7 @@ class StreamOutput(Executor):
                 "-preset:v": "ultrafast",
                 "-tune": "zerolatency",
                 "-f": "rtsp",
-                "-rtsp_transport": "tcp",
+                "-rtsp_transport": "udp",
             }
         self.ffmpeg_config = ffmpeg_config
         if zmq_config is None:
@@ -114,8 +116,8 @@ class StreamOutput(Executor):
             docs.apply(self._load_uri_to_image_tensor)
         elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
             docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
-        elif blobs is not None:
-            docs.apply(lambda doc : doc.convert_blob_to_image_tensor())
+        elif blobs is not None and docs.tensors is None:
+            docs.apply(lambda doc : doc.convert_blob_to_image_tensor() if doc.tensor is None else doc)
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
@@ -196,25 +198,37 @@ class StreamOutput(Executor):
                     else:
                         self.create_stream(output_stream)
                     pass
-        docs.tensors = None
-        if blobs is not None:
-            docs.blobs = blobs
+        
+            # Don't clear tensor if encoding using numpy
+            # and not sending tensor via nfs or redis
+            if not docs[0].tags["numpy"]:
+                if not (not docs[0].uri and "redis" not in docs[0].tags):
+                    docs.tensors = None
+                if blobs is not None:
+                    docs.blobs = blobs
         return docs
 
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
-            doc = doc.load_uri_to_image_tensor()
+            if doc.tags["numpy"]:
+                doc.tensor = np.load(doc.uri)
+            else:
+                doc = doc.load_uri_to_image_tensor()
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
 
     def _load_image_tensor_from_redis(self, doc: Document) -> Document:
-        image_key = doc.tags["redis"]
-        if self.rds.exists(image_key) != 0:
-            doc.blob = self.rds.get(image_key)
-            # Load bytes
-            doc = doc.convert_blob_to_image_tensor()
-            doc.pop("blob")
+        if "redis" in doc.tags:
+            image_key = doc.tags["redis"]
+            if self.rds.exists(image_key) != 0:
+                doc.blob = self.rds.get(image_key)
+                # Load bytes
+                if doc.tags["numpy"]:
+                    doc.tensor = np.load(BytesIO(doc.blob), allow_pickle=True)
+                else:
+                    doc = doc.convert_blob_to_image_tensor()
+                doc.pop("blob")
         return doc
 

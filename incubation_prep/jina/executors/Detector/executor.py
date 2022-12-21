@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 from datetime import datetime
 from os import getenv
 from typing import Dict, List
@@ -77,8 +78,8 @@ class YOLODetector(Executor):
             docs.apply(self._load_uri_to_image_tensor)
         elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
             docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
-        elif blobs is not None:
-            docs.apply(lambda doc : doc.convert_blob_to_image_tensor())
+        elif blobs is not None and docs.tensors is None:
+            docs.apply(lambda doc : doc.convert_blob_to_image_tensor() if doc.tensor is None else doc)
             
 
         # Check for dropped frames ( assume only 1 doc )
@@ -170,15 +171,22 @@ class YOLODetector(Executor):
                         if det.size()[0] != 0
                     ]
                 )
-            docs.tensors = None
-            if blobs is not None:
-                docs.blobs = blobs
+            # Don't clear tensor if encoding using numpy
+            # and not sending tensor via nfs or redis
+            if not docs[0].tags["numpy"]:
+                if not (not docs[0].uri and "redis" not in docs[0].tags):
+                    docs.tensors = None
+                if blobs is not None:
+                    docs.blobs = blobs
             return docs
 
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
-            doc = doc.load_uri_to_image_tensor()
+            if doc.tags["numpy"]:
+                doc.tensor = np.load(doc.uri)
+            else:
+                doc = doc.load_uri_to_image_tensor()
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
@@ -189,6 +197,11 @@ class YOLODetector(Executor):
             if self.rds.exists(image_key) != 0:
                 doc.blob = self.rds.get(image_key)
                 # Load bytes
-                doc = doc.convert_blob_to_image_tensor()
+                if doc.tags["numpy"]:
+                    # Need to reshape as assumed to be 1D
+                    doc.tensor = np.load(BytesIO(doc.blob), allow_pickle=True)
+                    # doc.tensor = np.reshape(doc.tensor, tuple(map(int,doc.tags["shape"])))
+                else:
+                    doc = doc.convert_blob_to_image_tensor()
                 doc.pop("blob")
         return doc

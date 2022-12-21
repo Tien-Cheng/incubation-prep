@@ -3,9 +3,12 @@ from datetime import datetime
 from os import getenv
 from pathlib import Path
 from typing import Dict
+from io import BytesIO
 
 import cv2
 import redis
+import numpy as np
+
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 
@@ -71,8 +74,8 @@ class SaveStream(Executor):
             docs.apply(self._load_uri_to_image_tensor)
         elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
             docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
-        elif blobs is not None:
-            docs.apply(lambda doc : doc.convert_blob_to_image_tensor())
+        elif blobs is not None and docs.tensors is None:
+            docs.apply(lambda doc : doc.convert_blob_to_image_tensor() if doc.tensor is None else doc)
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
@@ -144,14 +147,22 @@ class SaveStream(Executor):
                 success = cv2.imwrite(str(path), frame.tensor)
                 if not success:
                     self.logger.error("Failed to save file")
-            docs.tensors = None
-            if blobs is not None:
-                docs.blobs = blobs
+            # Don't clear tensor if encoding using numpy
+            # and not sending tensor via nfs or redis
+            if not docs[0].tags["numpy"]:
+                if not (not docs[0].uri and "redis" not in docs[0].tags):
+                    docs.tensors = None
+                if blobs is not None:
+                    docs.blobs = blobs
             return docs
+
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
-            doc = doc.load_uri_to_image_tensor()
+            if doc.tags["numpy"]:
+                doc.tensor = np.load(doc.uri)
+            else:
+                doc = doc.load_uri_to_image_tensor()
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
@@ -162,7 +173,10 @@ class SaveStream(Executor):
             if self.rds.exists(image_key) != 0:
                 doc.blob = self.rds.get(image_key)
                 # Load bytes
-                doc = doc.convert_blob_to_image_tensor()
+                if doc.tags["numpy"]:
+                    doc.tensor = np.load(BytesIO(doc.blob), allow_pickle=True)
+                else:
+                    doc = doc.convert_blob_to_image_tensor()
                 doc.pop("blob")
         return doc
 

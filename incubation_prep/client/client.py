@@ -1,6 +1,8 @@
 import asyncio
 import gc  # Prevent memory leak through manual gc
 import threading
+import multiprocessing
+from io import BytesIO
 from enum import Enum
 from itertools import count
 from os import getenv
@@ -88,6 +90,7 @@ class Client:
         send_tensor: bool = True,
         nfs: bool = False,
         redis: bool = False,
+        encode_numpy: bool = False
     ):
         try:
             # Try to get FPS
@@ -115,19 +118,38 @@ class Client:
                         "output_stream": output_stream,
                     },
                 )
+                doc.tags["numpy"] = encode_numpy
+                doc.tags["shape"] = list(frame.shape)
+                if encode_numpy:
+                    # Convert BGR to RGB
+                    cv2.cvtColor(frame, cv2.COLOR_BGR2RGB, frame)
+
                 # print("Time to create doc", perf_counter() - start)
                 # start = perf_counter()
                 if nfs:
-                    path = f"{output_path}/{frame_id}.jpg"
-                    cv2.imwrite(path, frame)
+                    path = f"{output_path}/{frame_id}"
+                    if encode_numpy:
+                        path += ".npy"
+                        np.save(path, frame)
+                    else:
+                        path += ".jpg"
+                        cv2.imwrite(path, frame)
                     doc.uri = path
                 elif redis:
-                    frame = cv2.imencode(".jpg", frame)[1].tobytes()
+                    if encode_numpy:
+                        np_bytes = BytesIO()
+                        np.save(np_bytes, frame, allow_pickle=True)
+                        frame = np_bytes.getvalue()
+                    else:
+                        frame = cv2.imencode(".jpg", frame)[1].tobytes()
                     self.rds.set(frame_id, frame)
                     doc.tags["redis"] = frame_id
                 else:
-                    frame = cv2.imencode(".jpg", frame)[1].tobytes()
-                    doc.blob = frame
+                    if encode_numpy:
+                        doc.tensor = np.array(frame)
+                    else:
+                        frame = cv2.imencode(".jpg", frame)[1].tobytes()
+                        doc.blob = frame
                 # print("Time to encode", perf_counter() - start)
                 self.metrics_producer.produce("metrics", value=dumps({
                     "type" : "client_yield_time",
@@ -214,28 +236,20 @@ class Client:
         send_image: bool = True,
         redis_cache: bool = False,
         nfs_cache: bool = False,
+        encode_numpy: bool = False,
     ):
         print("Starting inference...")
         cap = cv2.VideoCapture(video_path)
+        generator =  self.read_frames(cap, video_path, output_stream, output_path, send_image, nfs_cache, redis_cache, encode_numpy)
         if broker == BrokerType.kafka:
             self.kafka_client.flush()
         if broker == BrokerType.jina:
-            generator =  self.read_frames(cap, video_path, output_stream, output_path, send_image, nfs_cache, redis_cache)
-
             self.jina_client.post(
                 on="/infer", inputs=generator, stream=True, request_size=1, return_responses=True
             )
         else:
             try:
-                for frame in self.read_frames(
-                    cap,
-                    video_path,
-                    output_stream,
-                    output_path,
-                    send_image,
-                    nfs_cache,
-                    redis_cache,
-                ):
+                for frame in generator:
                     if broker == BrokerType.jina:
                         fire_and_forget(self.send_async_jina(frame, self.jina_client))
                         # gc.collect()
@@ -266,6 +280,7 @@ class Client:
 @click.option("--send-image/--no-send-image", default=True)
 @click.option("--nfs", is_flag=True)
 @click.option("--redis", is_flag=True)
+@click.option("--encode-numpy", is_flag=True)
 @click.option("--load-baseline", is_flag=True)
 def main(
     broker: BrokerType,
@@ -275,6 +290,7 @@ def main(
     send_image: bool,
     nfs: bool,
     redis: bool,
+    encode_numpy: bool,
     load_baseline: bool,
 ):
     if redis and nfs:
@@ -283,7 +299,7 @@ def main(
         raise ValueError("Don't know where NFS is!")
     client = Client(
         jina_config={
-            "host": getenv("JINA_HOSTNAME", "10.101.205.251"),
+            "host": getenv("JINA_HOSTNAME", "0.0.0.0"), # 10.101.205.251
             "port": int(getenv("JINA_PORT", 4091)),
             "tracing" : True,
             "traces_exporter_host" : "192.168.168.107",
@@ -315,7 +331,7 @@ def main(
         else None,
         producer_topic=getenv("KAFKA_PRODUCE_TOPIC", "frames"),
     )
-    client.infer(broker, video, stream_name, output_path, send_image, redis, nfs)
+    client.infer(broker, video, stream_name, output_path, send_image, redis, nfs, encode_numpy)
 
 
 if __name__ == "__main__":

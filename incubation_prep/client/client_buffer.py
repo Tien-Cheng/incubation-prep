@@ -6,6 +6,7 @@ from enum import Enum
 from queue import Queue
 from itertools import count
 from os import getenv
+from io import BytesIO
 from pathlib import Path
 from time import sleep, perf_counter
 from typing import Dict, Optional
@@ -75,13 +76,27 @@ class Client:
             self.rds = redis.Redis(**redis_config)
         self.producer_topic = producer_topic
         self.previous_frame_time = perf_counter()
-        self.start_frame_times = {} # map frame id to start frame time
+        self.start_frame_times = {}  # map frame id to start frame time
 
-        self.metrics_producer = Producer({
-            "bootstrap.servers": getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
-        })
+        self.metrics_producer = Producer(
+            {
+                "bootstrap.servers": getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
+            }
+        )
 
-    def run(self,broker: BrokerType, buffer: mp.Queue, encode_queue: mp.Queue, cap: cv2.VideoCapture, video_path: str, output_stream: str, output_path: Optional[str] = None, nfs: bool = False, redis: bool = False):
+    def run(
+        self,
+        broker: BrokerType,
+        buffer: mp.Queue,
+        encode_queue: mp.Queue,
+        cap: cv2.VideoCapture,
+        video_path: str,
+        output_stream: str,
+        output_path: Optional[str] = None,
+        nfs: bool = False,
+        redis: bool = False,
+        encode_numpy: bool = False,
+    ):
         try:
             # Try to get FPS
             fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -100,13 +115,11 @@ class Client:
                 ),
             )
             encode_process = mp.Process(
-            target=self.encode_frames,
-            args=(
-                encode_queue,
-            ),
+                target=self.encode_frames,
+                args=(encode_queue,),
             )
             for frame_count in count():
-                start = perf_counter() 
+                start = perf_counter()
                 success, frame = cap.read()
                 # print("Time to read frame", perf_counter() - start)
                 frame_id = f"vid-{filename}-{output_stream}-frame-{frame_count}"
@@ -121,12 +134,18 @@ class Client:
                         "output_stream": output_stream,
                     },
                 )
+                doc.tags["numpy"] = encode_numpy
+                doc.tags["shape"] = list(frame.shape)
                 # print("Time to create doc", perf_counter() - start)
                 # start = perf_counter()
-                if nfs or redis: 
+                if nfs or redis:
                     # Call encode in a separate process
                     if nfs:
-                        path = f"{output_path}/{frame_id}.jpg"
+                        path = f"{output_path}/{frame_id}"
+                        if encode_numpy:
+                            path += ".npy"
+                        else:
+                            path += ".jpg"
                         doc.uri = path
                         doc.tags["transfer_mode"] = "nfs"
                     elif redis:
@@ -136,23 +155,31 @@ class Client:
                     encode_queue.put((doc, frame))
                 else:
                     # Otherwise, still need encode here
-                    frame = cv2.imencode(".jpg", frame)[1].tobytes()
-                    doc.blob = frame
+                    if encode_numpy:
+                        doc.tensor = frame
+                    else:
+                        frame = cv2.imencode(".jpg", frame)[1].tobytes()
+                        doc.blob = frame
                 # print("Time to encode", perf_counter() - start)
-                self.metrics_producer.produce("metrics", value=dumps({
-                    "type" : "client_fill_buffer_time",
-                    "timestamp" : datetime.now().isoformat(),
-                    "executor" : "client",
-                    "executor_id" : "client",
-                    'value' : perf_counter() - start
-                }).encode("utf-8"))
+                self.metrics_producer.produce(
+                    "metrics",
+                    value=dumps(
+                        {
+                            "type": "client_fill_buffer_time",
+                            "timestamp": datetime.now().isoformat(),
+                            "executor": "client",
+                            "executor_id": "client",
+                            "value": perf_counter() - start,
+                        }
+                    ).encode("utf-8"),
+                )
                 self.metrics_producer.poll(0)
                 buffer.put(doc)
                 if frame_count == 1:
                     encode_process.start()
                 if frame_count == 5:
                     send_proc.start()
-        except Exception as e: 
+        except Exception as e:
             print("Error in populate frame buffer", e)
             pass
         finally:
@@ -163,11 +190,20 @@ class Client:
         while True:
             doc, frame = encode_queue.get(block=True, timeout=5)
             mode = doc.tags["transfer_mode"]
+            encode_numpy = doc.tags["numpy"]
             if mode == "nfs":
                 path = doc.uri
-                cv2.imwrite(path, frame)
+                if encode_numpy:
+                    np.save(path, np.array(frame))
+                else:
+                    cv2.imwrite(path, frame)
             elif mode == "redis":
-                frame = cv2.imencode(".jpg", frame)[1].tobytes()
+                if encode_numpy:
+                    np_bytes = BytesIO()
+                    np.save(np_bytes, frame, allow_pickle=True)
+                    frame = np_bytes.getvalue()
+                else:
+                    frame = cv2.imencode(".jpg", frame)[1].tobytes()
                 frame_id = doc.tags["redis"]
                 self.rds.set(frame_id, frame)
             else:
@@ -179,35 +215,50 @@ class Client:
     ):
         try:
             while True:
-                start = perf_counter() 
+                start = perf_counter()
                 # Get doc from buffer
                 doc = buffer.get(block=True, timeout=5)
                 # start = perf_counter()
                 # print("Time to encode", perf_counter() - start)
-                self.metrics_producer.produce("metrics", value=dumps({
-                    "type" : "client_yield_time",
-                    "timestamp" : datetime.now().isoformat(),
-                    "executor" : "client",
-                    "executor_id" : "client",
-                    'value' : perf_counter() - start
-                }).encode("utf-8"))
+                self.metrics_producer.produce(
+                    "metrics",
+                    value=dumps(
+                        {
+                            "type": "client_yield_time",
+                            "timestamp": datetime.now().isoformat(),
+                            "executor": "client",
+                            "executor_id": "client",
+                            "value": perf_counter() - start,
+                        }
+                    ).encode("utf-8"),
+                )
                 yield doc
                 start = perf_counter()
-                self.metrics_producer.produce("metrics", value=dumps({
-                    "type" : "start_processing",
-                    "event" : "overall",
-                    "timestamp" : datetime.now().isoformat(),
-                    "executor" : "client",
-                    "executor_id" : "client"
-                }).encode("utf-8"))
+                self.metrics_producer.produce(
+                    "metrics",
+                    value=dumps(
+                        {
+                            "type": "start_processing",
+                            "event": "overall",
+                            "timestamp": datetime.now().isoformat(),
+                            "executor": "client",
+                            "executor_id": "client",
+                        }
+                    ).encode("utf-8"),
+                )
                 self.metrics_producer.poll(0)
-                self.metrics_producer.produce("metrics", value=dumps({
-                    "type" : "client_metric_produce_time",
-                    "timestamp" : datetime.now().isoformat(),
-                    "executor" : "client",
-                    "executor_id" : "client",
-                    'value' : perf_counter() - start
-                }).encode("utf-8"))
+                self.metrics_producer.produce(
+                    "metrics",
+                    value=dumps(
+                        {
+                            "type": "client_metric_produce_time",
+                            "timestamp": datetime.now().isoformat(),
+                            "executor": "client",
+                            "executor_id": "client",
+                            "value": perf_counter() - start,
+                        }
+                    ).encode("utf-8"),
+                )
                 self.metrics_producer.poll(0)
         except Exception as e:
             print("End generator")
@@ -251,12 +302,11 @@ class Client:
         time = perf_counter()
         data = DocumentArray.from_bytes(message.value())
         frame_id = data[0].tags["frame_id"]
-    
+
         print(f"Time to receive frame: {time - self.start_frame_times[frame_id]}")
         fps = 1 / (time - self.start_frame_times[frame_id])
         # self.previous_frame_time = time
         print(f"FPS: {fps}, Expected FPS: {self.video_fps}, Error: {err}")
-
 
     def infer(
         self,
@@ -267,20 +317,24 @@ class Client:
         if broker == BrokerType.kafka:
             self.kafka_client.flush()
         if broker == BrokerType.jina:
-            generator =  self.read_frames(buffer)
+            generator = self.read_frames(buffer)
             self.jina_client.post(
-                on="/infer", inputs=generator, stream=True, request_size=1, return_responses=True
+                on="/infer",
+                inputs=generator,
+                stream=True,
+                request_size=1,
+                return_responses=True,
             )
         else:
             try:
-                for frame in self.read_frames(
-                    buffer
-                ):
+                for frame in self.read_frames(buffer):
                     if broker == BrokerType.jina:
                         fire_and_forget(self.send_async_jina(frame, self.jina_client))
                         # gc.collect()
                     elif broker == BrokerType.kafka:
-                        self.send_async_kafka(frame, self.kafka_client, self.producer_topic)
+                        self.send_async_kafka(
+                            frame, self.kafka_client, self.producer_topic
+                        )
                     elif broker == BrokerType.zmq:
                         fire_and_forget(self.send_async_zmq(frame, self.zmq_client))
                         # gc.collect()
@@ -306,6 +360,7 @@ class Client:
 @click.option("--send-image/--no-send-image", default=True)
 @click.option("--nfs", is_flag=True)
 @click.option("--redis", is_flag=True)
+@click.option("--numpy-encode", is_flag=True)
 @click.option("--load-baseline", is_flag=True)
 def main(
     broker: BrokerType,
@@ -315,6 +370,7 @@ def main(
     send_image: bool,
     nfs: bool,
     redis: bool,
+    encode_numpy: bool,
     load_baseline: bool,
 ):
     if redis and nfs:
@@ -323,11 +379,11 @@ def main(
         raise ValueError("Don't know where NFS is!")
     client = Client(
         jina_config={
-            "host": getenv("JINA_HOSTNAME", "0.0.0.0"), # 10.101.205.251
+            "host": getenv("JINA_HOSTNAME", "0.0.0.0"),  # 10.101.205.251
             "port": int(getenv("JINA_PORT", 4091)),
-            "tracing" : True,
-            "traces_exporter_host" : "192.168.168.107",
-            "traces_exporter_port" : 4317
+            "tracing": True,
+            "traces_exporter_host": "192.168.168.107",
+            "traces_exporter_port": 4317,
         },
         kafka_config={
             "bootstrap.servers": getenv("KAFKA_ADDRESS", "127.0.0.1:9092"),
@@ -360,15 +416,16 @@ def main(
         encode_queue = mp.Queue()
         cap = cv2.VideoCapture(video)
         client.run(
-                broker,
-                buffer,
-                encode_queue,
-                cap,
-                video,
-                stream_name,
-                output_path,
-                nfs,
-                redis,
+            broker,
+            buffer,
+            encode_queue,
+            cap,
+            video,
+            stream_name,
+            output_path,
+            nfs,
+            redis,
+            encode_numpy,
         )
     except Exception as e:
         print("ERROR")
@@ -376,8 +433,6 @@ def main(
     finally:
         print("End")
         cap.release()
-
-
 
 
 if __name__ == "__main__":
