@@ -31,7 +31,7 @@ metadata:
   name: detector
   namespace: default
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: detector
@@ -51,6 +51,21 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
+      # nodeName: worker1-ge76-raider-11uh
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker1-ge76-raider-11uh
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
       containers:
       - args:
         - executor
@@ -62,10 +77,18 @@ spec:
         - default
         - --uses
         - config.yml
+        - --gpus
+        - '1'
         - --port
         - '8080'
         - --port-monitoring
-        - '9090'
+        - '30090'
+        - --tracing
+        - --traces-exporter-host
+        - '192.168.168.107'
+        - --traces-exporter-port
+        - '4317'
+        - --monitoring
         - --uses-metas
         - '{}'
         - --uses-with
@@ -98,7 +121,9 @@ spec:
             name: component-common
         - configMapRef:
             name: non-triton
-        image: jina-detector:1.0
+        - configMapRef:
+            name: redis-common
+        image: tiencheng/jina-detector:1.2
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
@@ -113,3 +138,9 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 10
+        resources:
+          limits:
+            nvidia.com/gpu: '1'
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume

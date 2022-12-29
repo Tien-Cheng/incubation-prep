@@ -1,14 +1,18 @@
 import json
 from datetime import datetime
 from os import getenv
+from io import BytesIO
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
+import redis
+
 import numpy as np
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 
-from jina import Document, DocumentArray, Executor, requests
+from docarray import Document, DocumentArray
+from jina import Executor, requests
 from bytetracker import BYTETracker
 
 
@@ -17,8 +21,6 @@ class ObjectTracker(Executor):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if embedder_kwargs is None:
-            embedder_kwargs = {}
         self.trackers: Dict[str, BYTETracker] = {}
 
         # Common Logic
@@ -44,18 +46,26 @@ class ObjectTracker(Executor):
         )
         self.last_frame: Dict[str, str] = {}
         self.metric_producer = Producer(conf)
+        # Redis caching
+        try:
+            self.rds = redis.Redis(
+                host=getenv("REDIS_HOST", "localhost"),
+                port=int(getenv("REDIS_PORT", 6379)),
+                db=int(getenv("REDIS_DB", 0)),
+            )
+        except:
+            self.rds = None
 
     @requests
     def track(self, docs: DocumentArray, **kwargs):
         # Load tensors if necessary
-        send_tensors = True
-        if (
-            docs[...].tensors is None
-            and len(docs[...].find({"uri": {"$exists": True}})) != 0
-        ):
-            send_tensors = False
-            docs[...].apply(self._load_uri_to_image_tensor)
-
+        blobs = docs.blobs
+        if len(docs.find({"uri": {"$exists": True}})) != 0:
+            docs.apply(self._load_uri_to_image_tensor)
+        elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
+            docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+        elif blobs is not None and docs.tensors is None:
+            docs.apply(lambda doc : doc.convert_blob_to_image_tensor() if doc.tensor is None else doc)
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
@@ -78,7 +88,9 @@ class ObjectTracker(Executor):
                 ).encode("utf-8"),
             )
             self.metric_producer.poll(0)
-            self.logger.warn("Dropped frame")
+            self.logger.warning("Dropped frame")
+        else:
+            self.last_frame[output_stream] = frame_id
         with self.timer(
             metadata={
                 "frame_id": frame_id,
@@ -107,8 +119,14 @@ class ObjectTracker(Executor):
                     tracks = self.trackers[output_stream].update(dets, None)
                 # Update matches using tracks
                 frame.matches = self._update_dets(tracks)
-            if not send_tensors:
-                docs[...].tensors = None
+                
+            # Don't clear tensor if encoding using numpy
+            # and not sending tensor via nfs or redis
+            if not docs[0].tags["numpy"]:
+                if not (not docs[0].uri and "redis" not in docs[0].tags):
+                    docs.tensors = None
+                if blobs is not None:
+                    docs.blobs = blobs
             return docs
 
     def _create_tracker(self, name: str):
@@ -136,7 +154,7 @@ class ObjectTracker(Executor):
                 results.append(
                     Document(
                         tags={
-                            "bbox": track[:4],
+                            "bbox": list(track[:4]),
                             "confidence": track[6],
                             "class_name": track[5],
                             "track_id": track[4],
@@ -150,7 +168,24 @@ class ObjectTracker(Executor):
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
-            doc = doc.load_uri_to_image_tensor()
+            if doc.tags["numpy"]:
+                doc.tensor = np.load(doc.uri)
+            else:
+                doc = doc.load_uri_to_image_tensor()
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
+        return doc
+
+    def _load_image_tensor_from_redis(self, doc: Document) -> Document:
+        if "redis" in doc.tags:
+            image_key = doc.tags["redis"]
+            if self.rds.exists(image_key) != 0:
+                doc.blob = self.rds.get(image_key)
+                # Load bytes
+                if doc.tags["numpy"]:
+                    # Need to reshape as assumed to be 1D
+                    doc.tensor = np.load(BytesIO(doc.blob), allow_pickle=True)
+                else:
+                    doc = doc.convert_blob_to_image_tensor()
+                doc.pop("blob")
         return doc

@@ -51,6 +51,16 @@ spec:
         pod_type: GATEWAY
         shard_id: ''
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker1-ge76-raider-11uh
       containers:
       - args:
         - gateway
@@ -59,21 +69,29 @@ spec:
         - --k8s-namespace
         - default
         - --prefetch
-        - '5'
+        - '25'
         - --expose-endpoints
         - '{}'
         - --uses
         - GRPCGateway
         - --graph-description
         - '{"Detector": ["Tracker"], "start-gateway": ["Detector"], "Tracker": ["SaveFrame",
-          "Output"], "SaveFrame": [], "Output": ["end-gateway"]}'
+          "Output", "end-gateway"], "SaveFrame": [], "Output": []}'
         - --deployments-addresses
         - '{"Detector": ["grpc://detector.default.svc:8080"], "Tracker": ["grpc://tracker.default.svc:8080"],
           "SaveFrame": ["grpc://saveframe.default.svc:8080"], "Output": ["grpc://output.default.svc:8080"]}'
         - --port
         - '4091'
         - --port-monitoring
-        - '59198'
+        - '30090'
+        - --tracing
+        - --traces-exporter-host
+        - '192.168.168.107'
+        - --traces-exporter-port
+        - '4317'
+        - --monitoring
+        - --metrics-exporter-port
+        - '4317'
         command:
         - jina
         env:

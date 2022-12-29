@@ -2,14 +2,18 @@ import json
 from datetime import datetime
 from os import getenv
 from typing import Dict, Optional, Union
+from io import BytesIO
 
+import redis
 import cv2
 import numpy as np
+
 from confluent_kafka import Producer
 from simpletimer import StopwatchKafka
 from vidgear.gears import NetGear, WriteGear
 
-from jina import Document, DocumentArray, Executor, requests
+from jina import Executor, requests
+from docarray import DocumentArray, Document
 
 
 class StreamOutput(Executor):
@@ -73,6 +77,15 @@ class StreamOutput(Executor):
 
         self.last_frame: Dict[str, str] = {}
         self.metric_producer = Producer(conf)
+        # Redis caching
+        try:
+            self.rds = redis.Redis(
+                host=getenv("REDIS_HOST", "localhost"),
+                port=int(getenv("REDIS_PORT", 6379)),
+                db=int(getenv("REDIS_DB", 0)),
+            )
+        except:
+            self.rds = None
 
     def create_stream(self, name: str):
         self.streams[name] = WriteGear(
@@ -98,10 +111,13 @@ class StreamOutput(Executor):
         :param docs: _description_
         :type docs: DocumentArray
         """
-        if docs[...].tensors is None:
-            if len(docs[...].find({"uri": {"$exists": True}})) != 0:
-                docs[...].apply(self._load_uri_to_image_tensor)
-
+        blobs = docs.blobs
+        if len(docs.find({"uri": {"$exists": True}})) != 0:
+            docs.apply(self._load_uri_to_image_tensor)
+        elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
+            docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+        elif blobs is not None and docs.tensors is None:
+            docs.apply(lambda doc : doc.convert_blob_to_image_tensor() if doc.tensor is None else doc)
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
         output_stream = docs[0].tags["output_stream"]
@@ -124,7 +140,9 @@ class StreamOutput(Executor):
                 ).encode("utf-8"),
             )
             self.metric_producer.poll(0)
-            self.logger.warn("Dropped frame")
+            self.logger.warning("Dropped frame")
+        else:
+            self.last_frame[output_stream] = frame_id
         with self.timer(
             metadata={
                 "frame_id": frame_id,
@@ -180,12 +198,37 @@ class StreamOutput(Executor):
                     else:
                         self.create_stream(output_stream)
                     pass
-                frame.pop("tensor")
+        
+            # Don't clear tensor if encoding using numpy
+            # and not sending tensor via nfs or redis
+            if not docs[0].tags["numpy"]:
+                if not (not docs[0].uri and "redis" not in docs[0].tags):
+                    docs.tensors = None
+                if blobs is not None:
+                    docs.blobs = blobs
+        return docs
 
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
-            doc = doc.load_uri_to_image_tensor()
+            if doc.tags["numpy"]:
+                doc.tensor = np.load(doc.uri)
+            else:
+                doc = doc.load_uri_to_image_tensor()
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
         return doc
+
+    def _load_image_tensor_from_redis(self, doc: Document) -> Document:
+        if "redis" in doc.tags:
+            image_key = doc.tags["redis"]
+            if self.rds.exists(image_key) != 0:
+                doc.blob = self.rds.get(image_key)
+                # Load bytes
+                if doc.tags["numpy"]:
+                    doc.tensor = np.load(BytesIO(doc.blob), allow_pickle=True)
+                else:
+                    doc = doc.convert_blob_to_image_tensor()
+                doc.pop("blob")
+        return doc
+

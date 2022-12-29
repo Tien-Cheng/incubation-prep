@@ -51,6 +51,10 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
       containers:
       - args:
         - executor
@@ -98,7 +102,7 @@ spec:
             name: component-common
         - configMapRef:
             name: non-triton
-        image: jina-save-stream:1.0
+        image: tiencheng/jina-save-stream:1.2
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
@@ -113,3 +117,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: "2.0"
+            memory: "4Gi"

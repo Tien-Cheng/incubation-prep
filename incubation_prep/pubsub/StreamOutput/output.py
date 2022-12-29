@@ -113,9 +113,9 @@ class StreamOutput(Component):
                     )
 
             # We assume input is RGB
-            frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
-            frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
             try:
+                frame.tensor = cv2.resize(frame.tensor, (self.width, self.height))
+                frame.tensor = cv2.cvtColor(frame.tensor, cv2.COLOR_RGB2BGR)
                 self.logger.info(f"[{output_stream}] Sending frame")
                 if self.zmq:
                     self.streams[output_stream].send(frame.tensor)
@@ -127,6 +127,8 @@ class StreamOutput(Component):
                 else:
                     self.create_stream(output_stream)
                 pass
+            except Exception as e:
+                self.logger.error(e)
             return docs
 
 

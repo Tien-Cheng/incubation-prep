@@ -7,7 +7,9 @@ from enum import Enum
 from logging import Logger
 from os import getenv
 from typing import Dict, Optional
+from copy import copy
 
+import redis
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 from docarray import Document, DocumentArray
 from imagezmq import ImageSender
@@ -44,6 +46,16 @@ class Component(ABC):
 
     last_frame: Dict[str, str] = {}
     metric_producer = Producer(conf)
+
+    # Redis caching
+    try:
+        rds = redis.Redis(
+            host=getenv("REDIS_HOST", "localhost"),
+            port=int(getenv("REDIS_PORT", 6379)),
+            db=int(getenv("REDIS_DB", 0)),
+        )
+    except:
+        rds = None
 
     def __init__(self, msg_broker: Optional[Broker] = None):
         if msg_broker is None:
@@ -83,7 +95,7 @@ class Component(ABC):
     ) -> DocumentArray:
         return data
 
-    def serve(self, send_tensors: bool = True, filter_stream: Optional[str] = None):
+    def serve(self, filter_stream: Optional[str] = None):
         """
         This is a wrapper around __call__ that will do the following:
 
@@ -96,13 +108,11 @@ class Component(ABC):
         The choice of processor will depend on an environment variable
         """
         if self.broker == Broker.zmq:
-            self._process_zmq(send_tensors, filter_stream)
+            self._process_zmq(filter_stream)
         elif self.broker == Broker.kafka:
-            self._process_kafka(send_tensors, filter_stream)
+            self._process_kafka(filter_stream)
 
-    def _process_zmq(
-        self, send_tensors: bool = True, filter_stream: Optional[str] = None
-    ):
+    def _process_zmq(self, filter_stream: Optional[str] = None):
         try:
             while True:
                 # Get frames
@@ -118,7 +128,7 @@ class Component(ABC):
                     )
                 if len(frame_docs) == 0:
                     continue  # skip frames if pod not meant to receive them
-                result = self._call_main(frame_docs, send_tensors)
+                result = self._call_main(frame_docs, frame_docs.blobs is not None)
                 # Process Results
                 if self.producer:
                     self.producer.zmq_socket.send(result.to_bytes())
@@ -131,9 +141,7 @@ class Component(ABC):
         finally:
             self.consumer.close()
 
-    def _process_kafka(
-        self, send_tensors: bool = True, filter_stream: Optional[str] = None
-    ):
+    def _process_kafka(self, filter_stream: Optional[str] = None):
         try:
             if not self.consume_topic:
                 raise ValueError("No consumer topic set!")
@@ -156,7 +164,8 @@ class Component(ABC):
                     )
                 if len(frame_docs) == 0:
                     continue  # skip frames if pod not meant to receive them
-                result = self._call_main(frame_docs, send_tensors)
+                # Check that frame contains tensors
+                result = self._call_main(frame_docs, frame_docs.blobs is not None)
                 # Process Results
                 if self.produce_topic:
                     self.producer.produce(self.produce_topic, value=result.to_bytes())
@@ -171,11 +180,22 @@ class Component(ABC):
             self.consumer.close()
 
     def _call_main(
-        self, docs: DocumentArray, send_tensors: bool = True
+        self, docs: DocumentArray, send_tensors: bool = False # TODO: Remove from client side to avoid error
     ) -> DocumentArray:
-        if not send_tensors:
-            if docs[..., "uri"] is not None:
-                docs[...].apply(self._load_uri_to_image_tensor)
+        blobs = docs.blobs
+        if not bool(blobs[0]):
+            blobs = None # For some reason if blobs is none, will be [b""]
+        # assert blobs is None, f"TEST REDIS WORKS: {blobs}"
+        if blobs is None:
+            # tmp1 = False
+            if len(docs[...].find({"uri": {"$exists": True}})) != 0:
+                docs.apply(self._load_uri_to_image_tensor)
+            elif len(docs[...].find({"tags__redis": {"$exists": True}})) != 0:
+                # tmp1 = True
+                docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+            # assert tmp1, "TEST APPLY"
+        else:
+            docs.apply(self._load_image_tensor_from_blob)
 
         # NOTE: Assume only 1 doc inside docarray
         # Check for dropped frames
@@ -201,6 +221,8 @@ class Component(ABC):
             )
             self.metric_producer.poll(0)
             self.logger.warn("Dropped frame")
+        else:
+            self.last_frame[output_stream] = frame_id
 
         with self.timer(
             metadata={
@@ -214,8 +236,12 @@ class Component(ABC):
             }
         ):
             docs = self.__call__(docs)
-        if not send_tensors:
-            docs[...].tensors = None
+        # No matter what, remove the tensors
+        # even if sending frame over kafka, I want
+        # to store it in blob as jpeg (for compression)
+        # so I don't need the tensor
+        docs.tensors = None
+        docs.blobs = blobs
         return docs
 
     @staticmethod
@@ -225,4 +251,23 @@ class Component(ABC):
             # NOTE: Testing shows not necessary and actually breaks stuff
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
+        return doc
+
+    @staticmethod
+    def _load_image_tensor_from_blob(doc: Document) -> Document:
+        if doc.blob:
+            doc = doc.convert_blob_to_image_tensor()
+        return doc
+
+    def _load_image_tensor_from_redis(self, doc: Document) -> Document:
+        if "redis" in doc.tags:
+            image_key = doc.tags["redis"]
+            if self.rds.exists(image_key) != 0:
+                doc.blob = self.rds.get(image_key)
+                # Load bytes
+                doc = doc.convert_blob_to_image_tensor()
+                assert doc.tensor is not None, "Redis converts successfully"
+
+        else:
+            self.logger.error("Failed to load from redis")
         return doc

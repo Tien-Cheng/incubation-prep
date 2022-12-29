@@ -1,8 +1,10 @@
 import json
+from io import BytesIO
 from datetime import datetime
 from os import getenv
 from typing import Dict, List
 
+import redis
 import numpy as np
 from confluent_kafka import Producer
 from docarray import Document, DocumentArray
@@ -58,17 +60,27 @@ class YOLODetector(Executor):
             metadata={"executor": self.executor_name},
             kafka_parition=-1,
         )
+        # Redis caching
+        try:
+            self.rds = redis.Redis(
+                host=getenv("REDIS_HOST", "localhost"),
+                port=int(getenv("REDIS_PORT", 6379)),
+                db=int(getenv("REDIS_DB", 0)),
+            )
+        except:
+            self.rds = None
 
     @requests
     def detect(self, docs: DocumentArray, parameters: Dict = {}, **kwargs):
         # Load tensors if necessary
-        send_tensors = True
-        if (
-            docs[...].tensors is None
-            and len(docs[...].find({"uri": {"$exists": True}})) != 0
-        ):
-            send_tensors = False
-            docs[...].apply(self._load_uri_to_image_tensor)
+        blobs = docs.blobs
+        if len(docs.find({"uri": {"$exists": True}})) != 0:
+            docs.apply(self._load_uri_to_image_tensor)
+        elif len(docs.find({"tags__redis": {"$exists": True}})) != 0:
+            docs.apply(lambda doc: self._load_image_tensor_from_redis(doc))
+        elif blobs is not None and docs.tensors is None:
+            docs.apply(lambda doc : doc.convert_blob_to_image_tensor() if doc.tensor is None else doc)
+            
 
         # Check for dropped frames ( assume only 1 doc )
         frame_id = docs[0].tags["frame_id"]
@@ -92,7 +104,9 @@ class YOLODetector(Executor):
                 ).encode("utf-8"),
             )
             self.metric_producer.poll(0)
-            self.logger.warn("Dropped frame")
+            self.logger.warning("Dropped frame")
+        else:
+            self.last_frame[output_stream] = frame_id
         # NOTE: model currently does not support batch inference
         # list only converts first dim to list, not recursively like tolist
         with self.timer(
@@ -105,8 +119,7 @@ class YOLODetector(Executor):
                 "executor_id": self.executor_id,
             }
         ):
-            traversed_docs = docs
-            frames: List[np.ndarray] = list(traversed_docs.tensors)
+            frames: List[np.ndarray] = list(docs.tensors)
             # Either call Triton or run inference locally
             # assumption: image sent is RGB
             if self.is_triton:
@@ -143,7 +156,7 @@ class YOLODetector(Executor):
                         self.metrics_topic, value=json.dumps(metric).encode("utf-8")
                     )
                     self.metric_producer.poll(0)
-            for doc, dets in zip(traversed_docs, results.pred):
+            for doc, dets in zip(docs, results.pred):
                 # Make every det a match Document
                 doc.matches = DocumentArray(
                     [
@@ -158,14 +171,37 @@ class YOLODetector(Executor):
                         if det.size()[0] != 0
                     ]
                 )
-            if not send_tensors:
-                docs[...].tensors = None
+            # Don't clear tensor if encoding using numpy
+            # and not sending tensor via nfs or redis
+            if not docs[0].tags["numpy"]:
+                if not (not docs[0].uri and "redis" not in docs[0].tags):
+                    docs.tensors = None
+                if blobs is not None:
+                    docs.blobs = blobs
             return docs
 
     @staticmethod
     def _load_uri_to_image_tensor(doc: Document) -> Document:
         if doc.uri:
-            doc = doc.load_uri_to_image_tensor()
+            if doc.tags["numpy"]:
+                doc.tensor = np.load(doc.uri)
+            else:
+                doc = doc.load_uri_to_image_tensor()
             # Convert channels from NHWC to NCHW
             # doc.tensor = np.transpose(doc.tensor, (2, 1, 0))
+        return doc
+
+    def _load_image_tensor_from_redis(self, doc: Document) -> Document:
+        if "redis" in doc.tags:
+            image_key = doc.tags["redis"]
+            if self.rds.exists(image_key) != 0:
+                doc.blob = self.rds.get(image_key)
+                # Load bytes
+                if doc.tags["numpy"]:
+                    # Need to reshape as assumed to be 1D
+                    doc.tensor = np.load(BytesIO(doc.blob), allow_pickle=True)
+                    # doc.tensor = np.reshape(doc.tensor, tuple(map(int,doc.tags["shape"])))
+                else:
+                    doc = doc.convert_blob_to_image_tensor()
+                doc.pop("blob")
         return doc

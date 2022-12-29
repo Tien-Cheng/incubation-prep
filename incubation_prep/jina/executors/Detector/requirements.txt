@@ -1,4 +1,14 @@
-opencv-python==4.5.5.64
-Pillow
+# Common
+pyzmq
+imagezmq
+docarray
 confluent-kafka
 simpletimer-kafka==0.1.9
+redis[hiredis]
+
+# Specific
+opencv-python==4.5.5.64
+numpy
+torch
+torchvision
+Pillow

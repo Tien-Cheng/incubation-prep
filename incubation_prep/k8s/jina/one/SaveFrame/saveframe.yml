@@ -31,6 +31,7 @@ metadata:
   name: saveframe
   namespace: default
 spec:
+
   replicas: 1
   selector:
     matchLabels:
@@ -51,6 +52,20 @@ spec:
         pod_type: WORKER
         shard_id: '0'
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - worker3-ge76-raider-11uh
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
       containers:
       - args:
         - executor
@@ -66,7 +81,13 @@ spec:
         - --port
         - '8080'
         - --port-monitoring
-        - '9090'
+        - '30090'
+        - --tracing
+        - --traces-exporter-host
+        - '192.168.168.107'
+        - --traces-exporter-port
+        - '4317'
+        - --monitoring
         - --uses-metas
         - '{}'
         - --uses-with
@@ -98,7 +119,9 @@ spec:
             name: component-common
         - configMapRef:
             name: non-triton
-        image: jina-save-stream:1.0
+        - configMapRef:
+            name: redis-common
+        image: tiencheng/jina-save-stream:1.2
         imagePullPolicy: IfNotPresent
         name: executor
         ports:
@@ -113,3 +136,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 10
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume

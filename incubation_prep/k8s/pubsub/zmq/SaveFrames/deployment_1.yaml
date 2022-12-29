@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pubsub-save-frames-1
+  labels:
+    app: pubsub-save-frames-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pubsub-save-frames-1
+  template:
+    metadata:
+      labels:
+        app: pubsub-save-frames-1
+    spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
+      containers:
+      - name: pubsub-save-frames-1
+        image: tiencheng/pubsub-save-frames:1.3
+        resources:
+          limits:
+            cpu: "2.0"
+            memory: "2Gi"
+          requests:
+            cpu: "1.0"
+            memory: "1Gi"
+        # Add the following env section
+        env:
+        - name: BROKER
+          value: zmq
+        - name: ZMQ_HOSTNAME
+          value: out
+        - name: ZMQ_PORT_IN
+          value: "1113"
+        envFrom:
+          - configMapRef:
+              name: kafka-common
+          - configMapRef:
+              name: component-common
+          - configMapRef:
+              name: non-triton
+          - configMapRef:
+              name: redis-common
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume

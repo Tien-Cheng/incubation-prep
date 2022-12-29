@@ -2,7 +2,7 @@ version: '3'
 
 services:
   pubsub-detector:
-    image: pubsub-detector:1.1
+    image: pubsub-detector:1.3
     network_mode: "host"        
     deploy:
       resources:
@@ -11,8 +11,10 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    volumes:
+      - $PWD/client/data:/data
   pubsub-save-frames:
-    image: pubsub-save-frames:1.1
+    image: pubsub-save-frames:1.3
     network_mode: "host"        
     deploy:
       resources:
@@ -21,9 +23,10 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
+    volumes:
+      - $PWD/client/data:/data
   pubsub-stream-output:
-    image: pubsub-stream-output:1.1
+    image: pubsub-stream-output:1.3
     network_mode: "host"        
     deploy:
       resources:
@@ -32,9 +35,10 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
+    volumes:
+      - $PWD/client/data:/data
   pubsub-tracker:
-    image: pubsub-tracker:1.1
+    image: pubsub-tracker:1.3
     network_mode: "host"        
     deploy:
       resources:
@@ -43,3 +47,5 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    volumes:
+      - $PWD/client/data:/data

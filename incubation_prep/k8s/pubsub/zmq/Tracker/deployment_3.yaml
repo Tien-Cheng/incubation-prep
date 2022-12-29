@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pubsub-tracker-3
+  labels:
+    app: pubsub-tracker-3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pubsub-tracker-3
+  template:
+    metadata:
+      labels:
+        app: pubsub-tracker-3
+    spec:
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: data-volume
+      containers:
+      - name: pubsub-tracker-3
+        image: tiencheng/pubsub-tracker:1.3
+        resources:
+          limits:
+            cpu: "4.0"
+            memory: "8Gi"
+          requests:
+            cpu: "4.0"
+            memory: "4Gi"
+        # Add the following env section
+        env:
+        - name: BROKER
+          value: kafka
+        - name: KAFKA_CONSUMER_GROUP
+          value: track
+        - name: KAFKA_CONSUME_TOPIC
+          value: dets
+        - name: KAFKA_PRODUCE_TOPIC
+          value: tracks3
+        envFrom:
+          - configMapRef:
+              name: kafka-common
+          - configMapRef:
+              name: component-common
+          - configMapRef:
+              name: non-triton
+          - configMapRef:
+              name: redis-common
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume

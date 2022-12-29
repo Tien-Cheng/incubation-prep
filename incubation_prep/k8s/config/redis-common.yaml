@@ -1,0 +1,10 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-common
+data:
+  # Add key-value pairs for your configuration data here
+  REDIS_HOST:  redis-cache-master
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"

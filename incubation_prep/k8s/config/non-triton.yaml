@@ -8,5 +8,3 @@ data:
   # Object Detection Model
   YOLO_WEIGHTS: weights/yolov5s.pt
   YOLO_DEVICE: "0"
-  # Object Tracking
-  TRACKER_EMBEDDER: mobilenet
